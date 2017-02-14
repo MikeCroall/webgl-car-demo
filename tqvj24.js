@@ -296,7 +296,7 @@ function initArrayBuffer(gl, attribute, data, num, type) {
 
 function drawMainBody(gl, u_ModelMatrix, u_NormalMatrix) {
     // Set the vertex coordinates and color (for the cube)
-    var n = initVertexBuffers(gl, [1,0,0.5]);
+    var n = initVertexBuffers(gl, [1, 0, 0.5]);
     if (n < 0) {
         console.log('Failed to set the vertex information');
         return;
@@ -326,7 +326,7 @@ function drawMainBody(gl, u_ModelMatrix, u_NormalMatrix) {
 
 function drawCab(gl, u_ModelMatrix, u_NormalMatrix) {
     // Set the vertex coordinates and color (for the cube)
-    var n = initVertexBuffers(gl, [0,1,0]);
+    var n = initVertexBuffers(gl, [0, 1, 0]);
     if (n < 0) {
         console.log('Failed to set the vertex information');
         return;
@@ -338,11 +338,50 @@ function drawCab(gl, u_ModelMatrix, u_NormalMatrix) {
 
     // Move with car body to main location
     modelMatrix.translate(xDisplacement, 0, zDisplacement);
-    modelMatrix.rotate(yAngleFacing, 0, 1, 0); // Rotate along y axis
-    // modelMatrix.rotate(g_xAngle_wheels, 1, 0, 0); // Rotate along x axis
+    // Spin around with car
+    modelMatrix.rotate(yAngleFacing, 0, 1, 0);
     // Move model onto car body
     modelMatrix.translate(0, 0.6, 0.45);
-    modelMatrix.scale(1.35, 0.8, 1.5); // Scale
+    // Scale to size
+    modelMatrix.scale(1.35, 0.8, 1.5);
+
+    // Pass the model matrix to the uniform variable
+    gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements);
+
+    // Calculate the normal transformation matrix and pass it to u_NormalMatrix
+    g_normalMatrix.setInverseOf(modelMatrix);
+    g_normalMatrix.transpose();
+    gl.uniformMatrix4fv(u_NormalMatrix, false, g_normalMatrix.elements);
+
+    // Draw the body
+    gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
+}
+
+function drawDoor(gl, u_ModelMatrix, u_NormalMatrix, onLeft) {
+    // Set the vertex coordinates and color (for the cube)
+    var n = initVertexBuffers(gl, [0, 1, 1]);
+    if (n < 0) {
+        console.log('Failed to set the vertex information');
+        return;
+    }
+
+    // Reset translate and rotate before starting
+    modelMatrix.setTranslate(0, 0, 0);
+    modelMatrix.setRotate(0, 0, 0);
+
+    // Move with car body to main location
+    modelMatrix.translate(xDisplacement, 0, zDisplacement);
+    // Spin around with car
+    modelMatrix.rotate(yAngleFacing, 0, 1, 0);
+    // Move model onto car body
+    if (onLeft) {
+        modelMatrix.translate(-1.4, 0.15, 0);
+    } else {
+        modelMatrix.translate(1.4, 0.15, 0);
+    }
+    // Scale to size
+    modelMatrix.scale(0.1, 0.4, 1);
+    // TODO door rotations
 
     // Pass the model matrix to the uniform variable
     gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements);
@@ -383,4 +422,6 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
 
     drawMainBody(gl, u_ModelMatrix, u_NormalMatrix);
     drawCab(gl, u_ModelMatrix, u_NormalMatrix);
+    drawDoor(gl, u_ModelMatrix, u_NormalMatrix, true);
+    drawDoor(gl, u_ModelMatrix, u_NormalMatrix, false);
 }
