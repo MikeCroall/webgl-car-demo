@@ -1,19 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>Model Transformation</title>
-  </head>
+<head>
+    <meta charset="utf-8"/>
+    <title>tqvj24 - Car Assignment</title>
+    <style type="text/css">
+        html, body {
+            margin: 0 auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
 
-  <body onload="main()">
-    <canvas id="webgl" width="400" height="400">
-    Please use a browser that supports "canvas"
+        body {
+            padding-top: 10px;
+        }
+
+        #divControls {
+            margin: 0 auto;
+        }
+        
+        #divControls h3,ul {
+            padding-left: 0px;
+            list-style-type: none;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body onload="main()">
+<div>
+    <canvas id="webgl" width="800" height="800">
+        Please use a browser that supports "canvas"
     </canvas>
 
-    <script src="../lib/webgl-utils.js"></script>
-    <script src="../lib/webgl-debug.js"></script>
-    <script src="../lib/cuon-utils.js"></script>
-    <script src="../lib/cuon-matrix.js"></script>
-    <script src="lecture5.js"></script>
-  </body>
+    <div id="divControls">
+        <h3>Controls</h3>
+        <ul>
+            <li>Up Arrow - drive forward</li>
+            <li>Down Arrow - drive backward</li>
+            <li>Left Arrow - turn left</li>
+            <li>Right Arrow - turn right</li>
+            <li>O - open/close doors</li>
+        </ul>
+    </div>
+</div>
+
+<script src="../lib/webgl-utils.js"></script>
+<script src="../lib/webgl-debug.js"></script>
+<script src="../lib/cuon-utils.js"></script>
+<script src="../lib/cuon-matrix.js"></script>
+<script src="tqvj24.js"></script>
+</body>
 </html>
