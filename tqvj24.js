@@ -292,7 +292,7 @@ function drawMainBody(gl, u_ModelMatrix, u_NormalMatrix) {
 
 function drawCab(gl, u_ModelMatrix, u_NormalMatrix) {
     // Set the vertex coordinates and color (for the cube)
-    var n = initVertexBuffers(gl, [0, 1, 0]);
+    var n = initVertexBuffers(gl, [0.25, 1, 0]);
     if (n < 0) {
         console.log('Failed to set the vertex information');
         return;
@@ -325,7 +325,12 @@ function drawCab(gl, u_ModelMatrix, u_NormalMatrix) {
 
 function drawDoor(gl, u_ModelMatrix, u_NormalMatrix, onLeft) {
     // Set the vertex coordinates and color (for the cube)
-    var n = initVertexBuffers(gl, [0, 1, 1]);
+    var n;
+    if (onLeft) {
+        n = initVertexBuffers(gl, [0, 0.75, 1]);
+    } else {
+        n = initVertexBuffers(gl, [0.75, 0, 1]);
+    }
     if (n < 0) {
         console.log('Failed to set the vertex information');
         return;
