@@ -12,27 +12,30 @@
         }
 
         body {
-            padding-top: 10px;
+            padding: 10px;
         }
 
         #divControls {
             margin: 0 auto;
         }
-        
-        #divControls h3,ul {
+
+        #divControls h3, ul, p {
             padding-left: 0px;
             list-style-type: none;
             text-align: center;
+        }
+
+        #divControls p {
+            font-style: italic;
         }
     </style>
 </head>
 
 <body onload="main()">
 <div>
-    <canvas id="webgl" width="800" height="800">
+    <canvas id="webgl" width="1200" height="800">
         Please use a browser that supports "canvas"
     </canvas>
-
     <div id="divControls">
         <h3>Controls</h3>
         <ul>
@@ -42,6 +45,12 @@
             <li>Right Arrow - turn right</li>
             <li>O - open/close doors</li>
         </ul>
+
+        <p>
+            Please note: you can hold down a key to continually move/turn, etc. <br>
+            but the delay between first press and considered being "held" is <br>
+            controlled by your own operating system.
+        </p>
     </div>
 </div>
 

@@ -42,10 +42,11 @@ var viewMatrix = new Matrix4();  // The view matrix
 var projMatrix = new Matrix4();  // The projection matrix
 var g_normalMatrix = new Matrix4();  // Coordinate transformation matrix for normals
 
-var ANGLE_STEP = 3.0;  // The increments of rotation angle (degrees)
-var DRIVE_STEP = 0.3;
-var g_xAngle_wheels = 0.0;    // The rotation x angle (degrees)
-var yAngleFacing = 0.0;    // The rotation y angle (degrees)
+var WHEEL_ANGLE_STEP = 8.0; // The amount the wheels turn (degrees) per forward/backward step
+var TURNING_ANGLE_STEP = 3.0; // The increments of rotation angle (in degrees) for turning
+var DRIVE_DISPLACEMENT_STEP = 0.3; // The distance moved in a single step forward/backward
+var wheel_rotation_angle = 0.0; // The wheel rotation x angle (degrees)
+var turning_angle = 0.0; // The car rotation y angle (degrees)
 var xDisplacement = 0.0;
 var zDisplacement = 0.0;
 var doors_open = false;
@@ -121,24 +122,24 @@ function keypress(keyCode, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
     if (heldKeys[40]) {
         // Up arrow - drive forward
         recognised = true;
-        g_xAngle_wheels = (g_xAngle_wheels + ANGLE_STEP) % 360;
-        xDisplacement += Math.sin(yAngleFacing * Math.PI / 180) * DRIVE_STEP;
-        zDisplacement += Math.cos(yAngleFacing * Math.PI / 180) * DRIVE_STEP;
+        wheel_rotation_angle = (wheel_rotation_angle + WHEEL_ANGLE_STEP) % 360;
+        xDisplacement += Math.sin(turning_angle * Math.PI / 180) * DRIVE_DISPLACEMENT_STEP;
+        zDisplacement += Math.cos(turning_angle * Math.PI / 180) * DRIVE_DISPLACEMENT_STEP;
     } else if (heldKeys[38]) {
         // Down arrow - drive backward
         recognised = true;
-        g_xAngle_wheels = (g_xAngle_wheels - ANGLE_STEP) % 360;
-        xDisplacement -= Math.sin(yAngleFacing * Math.PI / 180) * DRIVE_STEP;
-        zDisplacement -= Math.cos(yAngleFacing * Math.PI / 180) * DRIVE_STEP;
+        wheel_rotation_angle = (wheel_rotation_angle - WHEEL_ANGLE_STEP) % 360;
+        xDisplacement -= Math.sin(turning_angle * Math.PI / 180) * DRIVE_DISPLACEMENT_STEP;
+        zDisplacement -= Math.cos(turning_angle * Math.PI / 180) * DRIVE_DISPLACEMENT_STEP;
     }
     if (heldKeys[39]) {
         // Right arrow - turn right (y axis rotation)
         recognised = true;
-        yAngleFacing = (yAngleFacing - ANGLE_STEP) % 360;
+        turning_angle = (turning_angle - TURNING_ANGLE_STEP) % 360;
     } else if (heldKeys[37]) {
         // Left arrow - turn left (y axis negative rotation)
         recognised = true;
-        yAngleFacing = (yAngleFacing + ANGLE_STEP) % 360;
+        turning_angle = (turning_angle + TURNING_ANGLE_STEP) % 360;
     }
     if (heldKeys[79]) {
         // O - toggle doors
@@ -151,7 +152,7 @@ function keypress(keyCode, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
     // var u_ViewMatrix = gl.getUniformLocation(gl.program, 'u_ViewMatrix');
     // gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements);
 
-    if(recognised) {
+    if (recognised) {
         // Redraw the scene
         draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
     } else {
@@ -274,7 +275,7 @@ function drawMainBody(gl, u_ModelMatrix, u_NormalMatrix) {
     // Move car body to main location
     modelMatrix.translate(xDisplacement, 0, zDisplacement);
     // Spin around car body
-    modelMatrix.rotate(yAngleFacing, 0, 1, 0);
+    modelMatrix.rotate(turning_angle, 0, 1, 0);
     // Scale to shape and size
     modelMatrix.scale(1.4, 0.6, 2);
 
@@ -305,7 +306,7 @@ function drawCab(gl, u_ModelMatrix, u_NormalMatrix) {
     // Move with car body to main location
     modelMatrix.translate(xDisplacement, 0, zDisplacement);
     // Spin around with car
-    modelMatrix.rotate(yAngleFacing, 0, 1, 0);
+    modelMatrix.rotate(turning_angle, 0, 1, 0);
     // Move model onto car body
     modelMatrix.translate(0, 0.6, 0.45);
     // Scale to size
@@ -329,7 +330,7 @@ function drawDoor(gl, u_ModelMatrix, u_NormalMatrix, onLeft) {
     if (onLeft) {
         n = initVertexBuffers(gl, [0, 0.75, 1]);
     } else {
-        n = initVertexBuffers(gl, [0.75, 0, 1]);
+        n = initVertexBuffers(gl, [0, 0, 1]);
     }
     if (n < 0) {
         console.log('Failed to set the vertex information');
@@ -343,7 +344,7 @@ function drawDoor(gl, u_ModelMatrix, u_NormalMatrix, onLeft) {
     // Move model around with car
     modelMatrix.translate(xDisplacement, 0.15, zDisplacement);
     // Spin around with car
-    modelMatrix.rotate(yAngleFacing, 0, 1, 0);
+    modelMatrix.rotate(turning_angle, 0, 1, 0);
     // Move model onto car body
     if (onLeft) {
         modelMatrix.translate(-1.4, 0, 0);
@@ -377,7 +378,67 @@ function drawDoor(gl, u_ModelMatrix, u_NormalMatrix, onLeft) {
     gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
 }
 
-// For wheels:     // modelMatrix.rotate(g_xAngle_wheels, 1, 0, 0); // Rotate along x axis
+function drawWheel(gl, u_ModelMatrix, u_NormalMatrix, wheelNum) {
+    // Set the vertex coordinates and color (for the cube)
+    var n;
+    switch (wheelNum) {
+        case 1:
+            n = initVertexBuffers(gl, [1, 0.62, 0.5]);
+            break;
+        case 2:
+            n = initVertexBuffers(gl, [0.64, 0.16, 0.16]);
+            break;
+        case 3:
+            n = initVertexBuffers(gl, [0.5, 0.5, 0]);
+            break;
+        case 4:
+            n = initVertexBuffers(gl, [0.46, 0.53, 0.6]);
+            break;
+    }
+    if (n < 0) {
+        console.log('Failed to set the vertex information');
+        return;
+    }
+
+    // Reset translate and rotate before starting
+    modelMatrix.setTranslate(0, 0, 0);
+    modelMatrix.setRotate(0, 0, 0);
+
+    // Move model around with car
+    modelMatrix.translate(xDisplacement, 0.2, zDisplacement);
+    // Spin around with car
+    modelMatrix.rotate(turning_angle, 0, 1, 0);
+    // Move model onto car body
+    switch (wheelNum) {
+        case 1:
+            modelMatrix.translate(-1.4, -1, -1.4);
+            break;
+        case 2:
+            modelMatrix.translate(1.4, -1, -1.4);
+            break;
+        case 3:
+            modelMatrix.translate(-1.4, -1, 1.4);
+            break;
+        case 4:
+            modelMatrix.translate(1.4, -1, 1.4);
+            break;
+    }
+    // Rotate for driving
+    modelMatrix.rotate(wheel_rotation_angle, 1, 0, 0);
+    // Scale to size
+    modelMatrix.scale(0.1, 0.4, 0.4);
+
+    // Pass the model matrix to the uniform variable
+    gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements);
+
+    // Calculate the normal transformation matrix and pass it to u_NormalMatrix
+    g_normalMatrix.setInverseOf(modelMatrix);
+    g_normalMatrix.transpose();
+    gl.uniformMatrix4fv(u_NormalMatrix, false, g_normalMatrix.elements);
+
+    // Draw it
+    gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
+}
 
 function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -386,6 +447,9 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
 
     drawMainBody(gl, u_ModelMatrix, u_NormalMatrix);
     drawCab(gl, u_ModelMatrix, u_NormalMatrix);
-    drawDoor(gl, u_ModelMatrix, u_NormalMatrix, true);
-    drawDoor(gl, u_ModelMatrix, u_NormalMatrix, false);
+    drawDoor(gl, u_ModelMatrix, u_NormalMatrix, true); // Left
+    drawDoor(gl, u_ModelMatrix, u_NormalMatrix, false); // Right
+    for (var wheelNum = 1; wheelNum <= 4; wheelNum++) { // All 4 wheels
+        drawWheel(gl, u_ModelMatrix, u_NormalMatrix, wheelNum);
+    }
 }
