@@ -49,6 +49,7 @@ var yAngleFacing = 0.0;    // The rotation y angle (degrees)
 var xDisplacement = 0.0;
 var zDisplacement = 0.0;
 var doors_open = false;
+var heldKeys = {};
 
 function main() {
     // Retrieve <canvas> element
@@ -98,51 +99,64 @@ function main() {
     gl.uniform3fv(u_LightDirection, lightDirection.elements);
 
     // Calculate the view matrix and the projection matrix
-    viewMatrix.setLookAt(0, 2, 15, 0, 0, -100, 0, 1, 0);
+    viewMatrix.setLookAt(0, 2, 20, 0, 0, -100, 0, 1, 0);
     projMatrix.setPerspective(30, canvas.width / canvas.height, 1, 100);
     // Pass the model, view, and projection matrix to the uniform variable respectively
     gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements);
     gl.uniformMatrix4fv(u_ProjMatrix, false, projMatrix.elements);
 
-    document.onkeydown = function (ev) {
-        keydown(ev, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
+    document.onkeydown = document.onkeyup = function (e) {
+        e = e || event; // IE compatability
+        heldKeys[e.keyCode] = e.type == 'keydown';
+        if (e.type == 'keydown') {
+            keypress(e.keyCode, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
+        }
     };
 
     draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
 }
 
-function keydown(ev, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
-    switch (ev.keyCode) {
-        case 40: // Up arrow - drive forward
-            g_xAngle_wheels = (g_xAngle_wheels + ANGLE_STEP) % 360;
-            xDisplacement += Math.sin(yAngleFacing * Math.PI / 180) * DRIVE_STEP;
-            zDisplacement += Math.cos(yAngleFacing * Math.PI / 180) * DRIVE_STEP;
-            break;
-        case 38: // Down arrow - drive backward
-            g_xAngle_wheels = (g_xAngle_wheels - ANGLE_STEP) % 360;
-            xDisplacement -= Math.sin(yAngleFacing * Math.PI / 180) * DRIVE_STEP;
-            zDisplacement -= Math.cos(yAngleFacing * Math.PI / 180) * DRIVE_STEP;
-            break;
-        case 39: // Right arrow - turn right (y axis rotation)
-            yAngleFacing = (yAngleFacing - ANGLE_STEP) % 360;
-            break;
-        case 37: // Left arrow - turn left (y axis negative rotation)
-            yAngleFacing = (yAngleFacing + ANGLE_STEP) % 360;
-            break;
-        case 79: // O - toggle doors
-            doors_open = !doors_open;
-            break;
-        default:
-            console.log("Unrecognised command from key code: " + ev.keyCode);
-            return; // Don't bother drawing
+function keypress(keyCode, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
+    var recognised = false;
+    if (heldKeys[40]) {
+        // Up arrow - drive forward
+        recognised = true;
+        g_xAngle_wheels = (g_xAngle_wheels + ANGLE_STEP) % 360;
+        xDisplacement += Math.sin(yAngleFacing * Math.PI / 180) * DRIVE_STEP;
+        zDisplacement += Math.cos(yAngleFacing * Math.PI / 180) * DRIVE_STEP;
+    } else if (heldKeys[38]) {
+        // Down arrow - drive backward
+        recognised = true;
+        g_xAngle_wheels = (g_xAngle_wheels - ANGLE_STEP) % 360;
+        xDisplacement -= Math.sin(yAngleFacing * Math.PI / 180) * DRIVE_STEP;
+        zDisplacement -= Math.cos(yAngleFacing * Math.PI / 180) * DRIVE_STEP;
     }
+    if (heldKeys[39]) {
+        // Right arrow - turn right (y axis rotation)
+        recognised = true;
+        yAngleFacing = (yAngleFacing - ANGLE_STEP) % 360;
+    } else if (heldKeys[37]) {
+        // Left arrow - turn left (y axis negative rotation)
+        recognised = true;
+        yAngleFacing = (yAngleFacing + ANGLE_STEP) % 360;
+    }
+    if (heldKeys[79]) {
+        // O - toggle doors
+        recognised = true;
+        doors_open = !doors_open;
+    }
+
     // Force camera to always look at the car
     // viewMatrix.setLookAt(0, 2, 15, xDisplacement, 0, zDisplacement, 0, 1, 0);
     // var u_ViewMatrix = gl.getUniformLocation(gl.program, 'u_ViewMatrix');
     // gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements);
 
-    // Draw the scene
-    draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
+    if(recognised) {
+        // Redraw the scene
+        draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
+    } else {
+        console.log("Unrecognised key code", keyCode);
+    }
 }
 
 
@@ -245,55 +259,6 @@ function initArrayBuffer(gl, attribute, data, num, type) {
     return true;
 }
 
-// function initAxesVertexBuffers(gl) {
-//
-//   var verticesColors = new Float32Array([
-//     // Vertex coordinates and color (for axes)
-//     -20.0,  0.0,   0.0,  1.0,  1.0,  1.0,  // (x,y,z), (r,g,b)
-//      20.0,  0.0,   0.0,  1.0,  1.0,  1.0,
-//      0.0,  20.0,   0.0,  1.0,  1.0,  1.0,
-//      0.0, -20.0,   0.0,  1.0,  1.0,  1.0,
-//      0.0,   0.0, -20.0,  1.0,  1.0,  1.0,
-//      0.0,   0.0,  20.0,  1.0,  1.0,  1.0
-//   ]);
-//   var n = 6;
-//
-//   // Create a buffer object
-//   var vertexColorBuffer = gl.createBuffer();
-//   if (!vertexColorBuffer) {
-//     console.log('Failed to create the buffer object');
-//     return false;
-//   }
-//
-//   // Bind the buffer object to target
-//   gl.bindBuffer(gl.ARRAY_BUFFER, vertexColorBuffer);
-//   gl.bufferData(gl.ARRAY_BUFFER, verticesColors, gl.STATIC_DRAW);
-//
-//   var FSIZE = verticesColors.BYTES_PER_ELEMENT;
-//   //Get the storage location of a_Position, assign and enable buffer
-//   var a_Position = gl.getAttribLocation(gl.program, 'a_Position');
-//   if (a_Position < 0) {
-//     console.log('Failed to get the storage location of a_Position');
-//     return -1;
-//   }
-//   gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, FSIZE * 6, 0);
-//   gl.enableVertexAttribArray(a_Position);  // Enable the assignment of the buffer object
-//
-//   // Get the storage location of a_Position, assign buffer and enable
-//   var a_Color = gl.getAttribLocation(gl.program, 'a_Color');
-//   if(a_Color < 0) {
-//     console.log('Failed to get the storage location of a_Color');
-//     return -1;
-//   }
-//   gl.vertexAttribPointer(a_Color, 3, gl.FLOAT, false, FSIZE * 6, FSIZE * 3);
-//   gl.enableVertexAttribArray(a_Color);  // Enable the assignment of the buffer object
-//
-//   // Unbind the buffer object
-//   gl.bindBuffer(gl.ARRAY_BUFFER, null);
-//
-//   return n;
-// }
-
 function drawMainBody(gl, u_ModelMatrix, u_NormalMatrix) {
     // Set the vertex coordinates and color (for the cube)
     var n = initVertexBuffers(gl, [1, 0, 0.5]);
@@ -306,11 +271,12 @@ function drawMainBody(gl, u_ModelMatrix, u_NormalMatrix) {
     modelMatrix.setTranslate(0, 0, 0);
     modelMatrix.setRotate(0, 0, 0);
 
-    // Rotate, and then translate (IN REVERSE)
+    // Move car body to main location
     modelMatrix.translate(xDisplacement, 0, zDisplacement);
-    modelMatrix.rotate(yAngleFacing, 0, 1, 0); // Rotate along y axis
-    // modelMatrix.rotate(g_xAngle_wheels, 1, 0, 0); // Rotate along x axis
-    modelMatrix.scale(1.4, 0.6, 2); // Scale
+    // Spin around car body
+    modelMatrix.rotate(yAngleFacing, 0, 1, 0);
+    // Scale to shape and size
+    modelMatrix.scale(1.4, 0.6, 2);
 
     // Pass the model matrix to the uniform variable
     gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements);
@@ -320,7 +286,7 @@ function drawMainBody(gl, u_ModelMatrix, u_NormalMatrix) {
     g_normalMatrix.transpose();
     gl.uniformMatrix4fv(u_NormalMatrix, false, g_normalMatrix.elements);
 
-    // Draw the body
+    // Draw it
     gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
 }
 
@@ -353,7 +319,7 @@ function drawCab(gl, u_ModelMatrix, u_NormalMatrix) {
     g_normalMatrix.transpose();
     gl.uniformMatrix4fv(u_NormalMatrix, false, g_normalMatrix.elements);
 
-    // Draw the body
+    // Draw it
     gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
 }
 
@@ -369,19 +335,30 @@ function drawDoor(gl, u_ModelMatrix, u_NormalMatrix, onLeft) {
     modelMatrix.setTranslate(0, 0, 0);
     modelMatrix.setRotate(0, 0, 0);
 
-    // Move with car body to main location
-    modelMatrix.translate(xDisplacement, 0, zDisplacement);
+    // Move model around with car
+    modelMatrix.translate(xDisplacement, 0.15, zDisplacement);
     // Spin around with car
     modelMatrix.rotate(yAngleFacing, 0, 1, 0);
     // Move model onto car body
     if (onLeft) {
-        modelMatrix.translate(-1.4, 0.15, 0);
+        modelMatrix.translate(-1.4, 0, 0);
     } else {
-        modelMatrix.translate(1.4, 0.15, 0);
+        modelMatrix.translate(1.4, 0, 0)
+    }
+    // Open door if needed
+    if (doors_open) {
+        // Translate back
+        modelMatrix.translate(-0.1, 0, -1);
+        if (onLeft) {
+            modelMatrix.rotate(-45, 0, 1, 0);
+        } else {
+            modelMatrix.rotate(45, 0, 1, 0);
+        }
+        // Translate to origin
+        modelMatrix.translate(0.1, 0, 1);
     }
     // Scale to size
     modelMatrix.scale(0.1, 0.4, 1);
-    // TODO door rotations
 
     // Pass the model matrix to the uniform variable
     gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements);
@@ -391,32 +368,14 @@ function drawDoor(gl, u_ModelMatrix, u_NormalMatrix, onLeft) {
     g_normalMatrix.transpose();
     gl.uniformMatrix4fv(u_NormalMatrix, false, g_normalMatrix.elements);
 
-    // Draw the body
+    // Draw it
     gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
 }
 
+// For wheels:     // modelMatrix.rotate(g_xAngle_wheels, 1, 0, 0); // Rotate along x axis
+
 function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
-
-    // Clear color and depth buffer
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-    gl.uniform1i(u_isLighting, false); // Will not apply lighting
-
-    // Set the vertex coordinates and color (for the x, y axes)
-
-    // var n = initAxesVertexBuffers(gl);
-    // if (n < 0) {
-    //   console.log('Failed to set the vertex information');
-    //   return;
-    // }
-
-    // // Calculate the view matrix and the projection matrix
-    // modelMatrix.setTranslate(0, 0, 0);  // No Translation
-    // // Pass the model matrix to the uniform variable
-    // gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements);
-    //
-    // // Draw x and y axes
-    // gl.drawArrays(gl.LINES, 0, n);
 
     gl.uniform1i(u_isLighting, true); // Will apply lighting
 
