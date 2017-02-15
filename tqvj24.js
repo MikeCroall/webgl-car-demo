@@ -41,12 +41,13 @@ var modelMatrix = new Matrix4(); // The model matrix
 var viewMatrix = new Matrix4();  // The view matrix
 var projMatrix = new Matrix4();  // The projection matrix
 var g_normalMatrix = new Matrix4();  // Coordinate transformation matrix for normals
+var u_ViewMatrix;
 
 var WHEEL_ANGLE_STEP = 8.0; // The amount the wheels turn (degrees) per forward/backward step
 var TURNING_ANGLE_STEP = 3.0; // The increments of rotation angle (in degrees) for turning
 var DRIVE_DISPLACEMENT_STEP = 0.3; // The distance moved in a single step forward/backward
 var wheel_rotation_angle = 0.0; // The wheel rotation x angle (degrees)
-var turning_angle = 0.0; // The car rotation y angle (degrees)
+var turning_angle = 135; // The car rotation y angle (degrees)
 var xDisplacement = 0.0;
 var zDisplacement = 0.0;
 var doors_open = false;
@@ -78,7 +79,7 @@ function main() {
 
     // Get the storage locations of uniform attributes
     var u_ModelMatrix = gl.getUniformLocation(gl.program, 'u_ModelMatrix');
-    var u_ViewMatrix = gl.getUniformLocation(gl.program, 'u_ViewMatrix');
+    u_ViewMatrix = gl.getUniformLocation(gl.program, 'u_ViewMatrix');
     var u_NormalMatrix = gl.getUniformLocation(gl.program, 'u_NormalMatrix');
     var u_ProjMatrix = gl.getUniformLocation(gl.program, 'u_ProjMatrix');
     var u_LightColor = gl.getUniformLocation(gl.program, 'u_LightColor');
@@ -96,11 +97,11 @@ function main() {
     gl.uniform3f(u_LightColor, 1.0, 1.0, 1.0);
     // Set the light direction (in the world coordinate)
     var lightDirection = new Vector3([0.5, 3.0, 4.0]);
-    lightDirection.normalize();     // Normalize
+    lightDirection.normalize(); // Normalize
     gl.uniform3fv(u_LightDirection, lightDirection.elements);
 
     // Calculate the view matrix and the projection matrix
-    viewMatrix.setLookAt(0, 2, 20, 0, 0, -100, 0, 1, 0);
+    viewMatrix.setLookAt(0, 30, 50, xDisplacement, 0, zDisplacement, 0, 1, 0);
     projMatrix.setPerspective(30, canvas.width / canvas.height, 1, 100);
     // Pass the model, view, and projection matrix to the uniform variable respectively
     gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements);
@@ -119,18 +120,18 @@ function main() {
 
 function keypress(keyCode, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
     var recognised = false;
-    if (heldKeys[40]) {
+    if (heldKeys[38]) {
         // Up arrow - drive forward
-        recognised = true;
-        wheel_rotation_angle = (wheel_rotation_angle + WHEEL_ANGLE_STEP) % 360;
-        xDisplacement += Math.sin(turning_angle * Math.PI / 180) * DRIVE_DISPLACEMENT_STEP;
-        zDisplacement += Math.cos(turning_angle * Math.PI / 180) * DRIVE_DISPLACEMENT_STEP;
-    } else if (heldKeys[38]) {
-        // Down arrow - drive backward
         recognised = true;
         wheel_rotation_angle = (wheel_rotation_angle - WHEEL_ANGLE_STEP) % 360;
         xDisplacement -= Math.sin(turning_angle * Math.PI / 180) * DRIVE_DISPLACEMENT_STEP;
         zDisplacement -= Math.cos(turning_angle * Math.PI / 180) * DRIVE_DISPLACEMENT_STEP;
+    } else if (heldKeys[40]) {
+        //Down arrow - drive backward
+        recognised = true;
+        wheel_rotation_angle = (wheel_rotation_angle + WHEEL_ANGLE_STEP) % 360;
+        xDisplacement += Math.sin(turning_angle * Math.PI / 180) * DRIVE_DISPLACEMENT_STEP;
+        zDisplacement += Math.cos(turning_angle * Math.PI / 180) * DRIVE_DISPLACEMENT_STEP;
     }
     if (heldKeys[39]) {
         // Right arrow - turn right (y axis rotation)
@@ -147,10 +148,15 @@ function keypress(keyCode, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
         doors_open = !doors_open;
     }
 
+    // Bound car to plane
+    if (xDisplacement > 18) {xDisplacement = 18; }
+    if (xDisplacement < -18) {xDisplacement = -18; }
+    if (zDisplacement > 18) { zDisplacement = 18; }
+    if (zDisplacement < -18) { zDisplacement = -18; }
+
     // Force camera to always look at the car
-    // viewMatrix.setLookAt(0, 2, 15, xDisplacement, 0, zDisplacement, 0, 1, 0);
-    // var u_ViewMatrix = gl.getUniformLocation(gl.program, 'u_ViewMatrix');
-    // gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements);
+    viewMatrix.setLookAt(0, 30, 50, xDisplacement, 0, zDisplacement, 0, 1, 0);
+    gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements);
 
     if (recognised) {
         // Redraw the scene
@@ -159,7 +165,6 @@ function keypress(keyCode, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
         console.log("Unrecognised key code", keyCode);
     }
 }
-
 
 function initVertexBuffers(gl, baseColour) {
     // Create a cube
@@ -440,6 +445,35 @@ function drawWheel(gl, u_ModelMatrix, u_NormalMatrix, wheelNum) {
     gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
 }
 
+function drawFloor(gl, u_ModelMatrix, u_NormalMatrix) {
+    // Set the vertex coordinates and color (for the cube)
+    var n = initVertexBuffers(gl, [1, 1, 1]);
+    if (n < 0) {
+        console.log('Failed to set the vertex information');
+        return;
+    }
+
+    // Reset translate and rotate before starting
+    modelMatrix.setTranslate(0, 0, 0);
+    modelMatrix.setRotate(0, 0, 0);
+
+    // Move to correct y level for floor
+    modelMatrix.translate(0, -1.5, 0);
+    // Scale to shape and size
+    modelMatrix.scale(20, 0.1, 20);
+
+    // Pass the model matrix to the uniform variable
+    gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements);
+
+    // Calculate the normal transformation matrix and pass it to u_NormalMatrix
+    g_normalMatrix.setInverseOf(modelMatrix);
+    g_normalMatrix.transpose();
+    gl.uniformMatrix4fv(u_NormalMatrix, false, g_normalMatrix.elements);
+
+    // Draw it
+    gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
+}
+
 function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -452,4 +486,5 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
     for (var wheelNum = 1; wheelNum <= 4; wheelNum++) { // All 4 wheels
         drawWheel(gl, u_ModelMatrix, u_NormalMatrix, wheelNum);
     }
+    drawFloor(gl, u_ModelMatrix, u_NormalMatrix);
 }
