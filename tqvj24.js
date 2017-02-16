@@ -51,6 +51,7 @@ var turning_angle = 135; // The car rotation y angle (degrees)
 var xDisplacement = 0.0;
 var zDisplacement = 0.0;
 var doors_open = false;
+var door_cooldown = 0;
 var heldKeys = {};
 
 function main() {
@@ -109,16 +110,32 @@ function main() {
 
     document.onkeydown = document.onkeyup = function (e) {
         e = e || event; // IE compatability
-        heldKeys[e.keyCode] = e.type == 'keydown';
-        if (e.type == 'keydown') {
-            keypress(e.keyCode, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
+        if (e.keyCode == 79) { // Door cooldown to avoid flickering doors
+            if (door_cooldown < 1) {
+                if (e.type == 'keydown') {
+                    door_cooldown = 4;
+                    doors_open = !doors_open;
+                    draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
+                }
+            } else {
+                console.log("Cannot toggle doors so quickly - cooldown: ", door_cooldown)
+            }
+        } else {
+            heldKeys[e.keyCode] = e.type == 'keydown';
         }
     };
+
+    window.setInterval(function () {
+        if (door_cooldown > 0) {
+            door_cooldown -= 1;
+        }
+        checkKeys(null, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting)
+    }, 50);
 
     draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
 }
 
-function keypress(keyCode, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
+function checkKeys(keyCode, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
     var recognised = false;
     if (heldKeys[38]) {
         // Up arrow - drive forward
@@ -145,14 +162,21 @@ function keypress(keyCode, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
     if (heldKeys[79]) {
         // O - toggle doors
         recognised = true;
-        doors_open = !doors_open;
     }
 
     // Bound car to plane
-    if (xDisplacement > 18) {xDisplacement = 18; }
-    if (xDisplacement < -18) {xDisplacement = -18; }
-    if (zDisplacement > 18) { zDisplacement = 18; }
-    if (zDisplacement < -18) { zDisplacement = -18; }
+    if (xDisplacement > 18) {
+        xDisplacement = 18;
+    }
+    if (xDisplacement < -18) {
+        xDisplacement = -18;
+    }
+    if (zDisplacement > 18) {
+        zDisplacement = 18;
+    }
+    if (zDisplacement < -18) {
+        zDisplacement = -18;
+    }
 
     // Force camera to always look at the car
     viewMatrix.setLookAt(0, 30, 50, xDisplacement, 0, zDisplacement, 0, 1, 0);
@@ -161,7 +185,7 @@ function keypress(keyCode, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
     if (recognised) {
         // Redraw the scene
         draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
-    } else {
+    } else if (keyCode) {
         console.log("Unrecognised key code", keyCode);
     }
 }
