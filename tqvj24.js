@@ -94,6 +94,7 @@ function main() {
         return;
     }
 
+    // DIRECTIONAL LIGHTING // todo also add point lighting (headlights?)
     // Set the light color (white)
     gl.uniform3f(u_LightColor, 1.0, 1.0, 1.0);
     // Set the light direction (in the world coordinate)
@@ -118,7 +119,7 @@ function main() {
                     draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
                 }
             } else {
-                console.log("Cannot toggle doors so quickly - cooldown: ", door_cooldown)
+                console.log("Cannot toggle doors so quickly - remaining cooldown: ", door_cooldown)
             }
         } else {
             heldKeys[e.keyCode] = e.type == 'keydown';
@@ -216,14 +217,6 @@ function initVertexBuffers(gl, baseColour) {
         myColours.push(baseColour[2]);
     }
     var colors = new Float32Array(myColours);
-    // var colors = new Float32Array([    // Colors
-    //     1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,     // v0-v1-v2-v3 front
-    //     1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,     // v0-v3-v4-v5 right
-    //     1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,     // v0-v5-v6-v1 up
-    //     1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,     // v1-v6-v7-v2 left
-    //     1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,     // v7-v4-v3-v2 down
-    //     1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0　    // v4-v7-v6-v5 back
-    // ]);
 
     var normals = new Float32Array([    // Normal
         0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0,  // v0-v1-v2-v3 front
@@ -234,7 +227,6 @@ function initVertexBuffers(gl, baseColour) {
         0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0   // v4-v7-v6-v5 back
     ]);
 
-
     // Indices of the vertices
     var indices = new Uint8Array([
         0, 1, 2, 0, 2, 3,    // front
@@ -244,7 +236,6 @@ function initVertexBuffers(gl, baseColour) {
         16, 17, 18, 16, 18, 19,    // down
         20, 21, 22, 20, 22, 23     // back
     ]);
-
 
     // Write the vertex property to buffers (coordinates, colors and normals)
     if (!initArrayBuffer(gl, 'a_Position', vertices, 3, gl.FLOAT)) return -1;
