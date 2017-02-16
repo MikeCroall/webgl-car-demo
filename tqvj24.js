@@ -113,7 +113,7 @@ function main() {
         if (e.keyCode == 79) { // Door cooldown to avoid flickering doors
             if (door_cooldown < 1) {
                 if (e.type == 'keydown') {
-                    door_cooldown = 4;
+                    door_cooldown = 3;
                     doors_open = !doors_open;
                     draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
                 }
