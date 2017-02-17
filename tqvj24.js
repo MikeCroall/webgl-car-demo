@@ -43,9 +43,12 @@ var projMatrix = new Matrix4();  // The projection matrix
 var g_normalMatrix = new Matrix4();  // Coordinate transformation matrix for normals
 var u_ViewMatrix;
 
+// Constant values
 var WHEEL_ANGLE_STEP = 8.0; // The amount the wheels turn (degrees) per forward/backward step
 var TURNING_ANGLE_STEP = 3.0; // The increments of rotation angle (in degrees) for turning
 var DRIVE_DISPLACEMENT_STEP = 0.3; // The distance moved in a single step forward/backward
+
+// Starting values
 var wheel_rotation_angle = 0.0; // The wheel rotation x angle (degrees)
 var turning_angle = 135; // The car rotation y angle (degrees)
 var xDisplacement = 0.0;
@@ -130,74 +133,87 @@ function main() {
         if (door_cooldown > 0) {
             door_cooldown -= 1;
         }
-        checkKeys(null, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting)
+        checkKeys(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting)
     }, 50);
 
     draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
 }
 
-function turnCar(turnLeft, reversing = false) {
-    if (reversing) { turnLeft = !turnLeft; }
+function turnCar(turnLeft, reversing) {
+    if (reversing) {
+        turnLeft = !turnLeft;
+    }
     if (turnLeft) {
         turning_angle = (turning_angle + TURNING_ANGLE_STEP) % 360;
     } else {
         turning_angle = (turning_angle - TURNING_ANGLE_STEP) % 360;
     }
 }
-function checkKeys(keyCode, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
+
+function moveCar(forward) {
+    var xDiff = Math.sin(turning_angle * Math.PI / 180) * DRIVE_DISPLACEMENT_STEP;
+    var zDiff = Math.cos(turning_angle * Math.PI / 180) * DRIVE_DISPLACEMENT_STEP;
+    if (forward) {
+        wheel_rotation_angle = (wheel_rotation_angle - WHEEL_ANGLE_STEP) % 360;
+        xDisplacement -= xDiff;
+        zDisplacement -= zDiff;
+    } else {
+        wheel_rotation_angle = (wheel_rotation_angle + WHEEL_ANGLE_STEP) % 360;
+        xDisplacement += xDiff;
+        zDisplacement += zDiff;
+    }
+}
+
+function checkKeys(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
     var recognised = false;
     var reversing = false;
-    if (heldKeys[38]) {
-        // Up arrow - drive forward
+
+    // Move
+    if (heldKeys[38]) {         // Up arrow - drive forward
         recognised = true;
-        wheel_rotation_angle = (wheel_rotation_angle - WHEEL_ANGLE_STEP) % 360;
-        xDisplacement -= Math.sin(turning_angle * Math.PI / 180) * DRIVE_DISPLACEMENT_STEP;
-        zDisplacement -= Math.cos(turning_angle * Math.PI / 180) * DRIVE_DISPLACEMENT_STEP;
-    } else if (heldKeys[40]) {
-        //Down arrow - drive backward
+        moveCar(true);
+    } else if (heldKeys[40]) {  //Down arrow - drive backward
         recognised = true;
         reversing = true;
-        wheel_rotation_angle = (wheel_rotation_angle + WHEEL_ANGLE_STEP) % 360;
-        xDisplacement += Math.sin(turning_angle * Math.PI / 180) * DRIVE_DISPLACEMENT_STEP;
-        zDisplacement += Math.cos(turning_angle * Math.PI / 180) * DRIVE_DISPLACEMENT_STEP;
+        moveCar(false);
     }
-    if (heldKeys[39]) {
-        // Right arrow - turn right (y axis rotation)
+
+    // Turn
+    if (heldKeys[39]) {         // Right arrow - turn right (y axis rotation)
         recognised = true;
         turnCar(false, reversing);
-    } else if (heldKeys[37]) {
-        // Left arrow - turn left (y axis negative rotation)
+    } else if (heldKeys[37]) {  // Left arrow - turn left (y axis negative rotation)
         recognised = true;
         turnCar(true, reversing);
     }
-    if (heldKeys[79]) {
-        // O - toggle doors
+
+    // Avoid error on O press - actually handled in key event handler due to cooldown to avoid flicker
+    if (heldKeys[79]) {         // O - toggle doors
         recognised = true;
     }
 
-    // Bound car to plane
-    if (xDisplacement > 18) {
-        xDisplacement = 18;
-    }
-    if (xDisplacement < -18) {
-        xDisplacement = -18;
-    }
-    if (zDisplacement > 18) {
-        zDisplacement = 18;
-    }
-    if (zDisplacement < -18) {
-        zDisplacement = -18;
-    }
-
-    // Force camera to always look at the car
-    viewMatrix.setLookAt(0, 30, 50, xDisplacement, 0, zDisplacement, 0, 1, 0);
-    gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements);
-
+    // Only update things if buttons are held
     if (recognised) {
+        // Bound car to plain (plain is -20 to 20, avoid overhanging wheels etc)
+        if (xDisplacement > 18) {
+            xDisplacement = 18;
+        }
+        if (xDisplacement < -18) {
+            xDisplacement = -18;
+        }
+        if (zDisplacement > 18) {
+            zDisplacement = 18;
+        }
+        if (zDisplacement < -18) {
+            zDisplacement = -18;
+        }
+
+        // Force camera to always look at the car
+        viewMatrix.setLookAt(0, 30, 50, xDisplacement, 0, zDisplacement, 0, 1, 0);
+        gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements);
+
         // Redraw the scene
         draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
-    } else if (keyCode) {
-        console.log("Unrecognised key code", keyCode);
     }
 }
 
