@@ -136,8 +136,17 @@ function main() {
     draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
 }
 
+function turnCar(turnLeft, reversing = false) {
+    if (reversing) { turnLeft = !turnLeft; }
+    if (turnLeft) {
+        turning_angle = (turning_angle + TURNING_ANGLE_STEP) % 360;
+    } else {
+        turning_angle = (turning_angle - TURNING_ANGLE_STEP) % 360;
+    }
+}
 function checkKeys(keyCode, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
     var recognised = false;
+    var reversing = false;
     if (heldKeys[38]) {
         // Up arrow - drive forward
         recognised = true;
@@ -147,6 +156,7 @@ function checkKeys(keyCode, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
     } else if (heldKeys[40]) {
         //Down arrow - drive backward
         recognised = true;
+        reversing = true;
         wheel_rotation_angle = (wheel_rotation_angle + WHEEL_ANGLE_STEP) % 360;
         xDisplacement += Math.sin(turning_angle * Math.PI / 180) * DRIVE_DISPLACEMENT_STEP;
         zDisplacement += Math.cos(turning_angle * Math.PI / 180) * DRIVE_DISPLACEMENT_STEP;
@@ -154,11 +164,11 @@ function checkKeys(keyCode, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
     if (heldKeys[39]) {
         // Right arrow - turn right (y axis rotation)
         recognised = true;
-        turning_angle = (turning_angle - TURNING_ANGLE_STEP) % 360;
+        turnCar(false, reversing);
     } else if (heldKeys[37]) {
         // Left arrow - turn left (y axis negative rotation)
         recognised = true;
-        turning_angle = (turning_angle + TURNING_ANGLE_STEP) % 360;
+        turnCar(true, reversing);
     }
     if (heldKeys[79]) {
         // O - toggle doors
