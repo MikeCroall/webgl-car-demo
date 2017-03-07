@@ -20,13 +20,26 @@
         }
 
         #divControls h3, ul, p {
-            padding-left: 0px;
+            padding-left: 0;
             list-style-type: none;
             text-align: center;
         }
 
         #divControls p {
             font-style: italic;
+        }
+
+        .key-command {
+            font-weight: bold;
+        }
+
+        .toggle {
+            color: red;
+            font-weight: bold;
+        }
+
+        .toggle.on {
+            color:green;
         }
     </style>
 </head>
@@ -39,16 +52,30 @@
     <div id="divControls">
         <h3>Controls</h3>
         <ul>
-            <li>Up Arrow - drive forward</li>
-            <li>Down Arrow - drive backward</li>
-            <li>Left Arrow - turn left</li>
-            <li>Right Arrow - turn right</li>
-            <li>O - open/close doors</li>
+            <li>
+                <span class="key-command">Up Arrow</span> - drive forward
+            </li>
+            <li>
+                <span class="key-command">Down Arrow</span> - drive backward
+            </li>
+            <li>
+                <span class="key-command">Left Arrow</span> - turn left
+            </li>
+            <li>
+                <span class="key-command">Right Arrow</span> - turn right
+            </li>
+            <li>
+                <span class="key-command">O</span> - open/close doors - <span class="toggle" id="spnDoors">CLOSED</span>
+            </li>
+            <li>
+                <span class="key-command">K</span> - toggle point light - <span class="toggle on" id="spnPointLight">ON</span>
+            </li>
+            <li>
+                <span class="key-command">L</span> - toggle directional light - <span class="toggle on" id="spnDirectLight">ON</span>
+            </li>
         </ul>
-
         <p>
             Please note: you can hold down a key to continually move/turn, etc. <br>
-            Because of this allowance, I have had to 'rate limit' the door toggling
         </p>
     </div>
 </div>

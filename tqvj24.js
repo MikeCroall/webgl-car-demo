@@ -11,15 +11,20 @@ var VSHADER_SOURCE =
     'uniform vec3 u_LightDirection;\n' + // Light direction (in the world coordinate, normalized)
     'varying vec4 v_Color;\n' +
     'uniform bool u_isLighting;\n' +
+    'varying vec3 v_Normal;\n' +
+    'varying vec3 v_Position;\n' +
     'void main() {\n' +
     '  gl_Position = u_ProjMatrix * u_ViewMatrix * u_ModelMatrix * a_Position;\n' +
+    '  v_Position = vec3(u_ModelMatrix * a_Position);\n' +
+    '  v_Normal = normalize(vec3(u_NormalMatrix * a_Normal));\n' +
     '  if(u_isLighting)\n' +
     '  {\n' +
     '     vec3 normal = normalize((u_NormalMatrix * a_Normal).xyz);\n' +
     '     float nDotL = max(dot(normal, u_LightDirection), 0.0);\n' +
-    // Calculate the color due to diffuse reflection
+        // Calculate the color due to diffuse reflection
     '     vec3 diffuse = u_LightColor * a_Color.rgb * nDotL;\n' +
-    '     v_Color = vec4(diffuse, a_Color.a);\n' + '  }\n' +
+    '     v_Color = vec4(diffuse, a_Color.a);\n' +
+    '  }\n' +
     '  else\n' +
     '  {\n' +
     '     v_Color = a_Color;\n' +
@@ -31,9 +36,30 @@ var FSHADER_SOURCE =
     '#ifdef GL_ES\n' +
     'precision mediump float;\n' +
     '#endif\n' +
+    'uniform vec3 u_LightColorB;\n' +     // Light color
+    'uniform vec3 u_LightPosition;\n' +  // Position of the light source
+    'varying vec3 v_Normal;\n' +
+    'varying vec3 v_Position;\n' +
     'varying vec4 v_Color;\n' +
+    'uniform bool u_isPointLighting;\n' +
     'void main() {\n' +
-    '  gl_FragColor = v_Color;\n' +
+        // CHECK FOR POINT LIGHTING
+    '  if(u_isPointLighting)\n' +
+    '  {\n' +
+    // Normalize the normal because it is interpolated and not 1.0 in length any more
+    '    vec3 normal = normalize(v_Normal);\n' +
+    // Calculate the light direction and make its length 1.
+    '    vec3 lightDirection = normalize(u_LightPosition - v_Position);\n' +
+    // The dot product of the light direction and the orientation of a surface (the normal)
+    '    float nDotL = max(dot(lightDirection, normal), 0.0);\n' +
+    // Calculate the final color from diffuse reflection
+    '    vec3 diffuse = u_LightColorB * v_Color.rgb * nDotL;\n' +
+    '    gl_FragColor = vec4(diffuse + v_Color.rgb, v_Color.a);\n' +
+    '  }' +
+    '  else' +
+    '  {\n'+
+    '    gl_FragColor = v_Color;' +
+    '  }\n' +
     '}\n';
 
 var modelMatrix = new Matrix4(); // The model matrix
@@ -47,21 +73,34 @@ var n;
 
 // Constant values
 var WHEEL_ANGLE_STEP = 8.0; // The amount the wheels turn (degrees) per forward/backward step
-var TURNING_ANGLE_STEP = 3.0; // The increments of rotation angle (in degrees) for turning
-var DRIVE_DISPLACEMENT_STEP = 0.3; // The distance moved in a single step forward/backward
+var TURNING_ANGLE_STEP = 2.5; // The increments of rotation angle (in degrees) for turning
+var DRIVE_DISPLACEMENT_STEP = 0.25; // The distance moved in a single step forward/backward
 
 // Starting values
 var wheel_rotation_angle = 0.0; // The wheel rotation x angle (degrees)
-var turning_angle = 0; // The car rotation y angle (degrees)
+var turning_angle = 135; // The car rotation y angle (degrees)
 var xDisplacement = 0.0;
 var zDisplacement = 0.0;
 var doors_open = false;
 var door_cooldown = 0;
 var heldKeys = {};
+var directionalLighting = true;
+var pointLighting = true;
+var waitingForLightingDraw = false;
+
+// HTML Elements (for controls to show values of toggles)
+var elemDoors;
+var elemPoint;
+var elemDirec;
+
+// TODO as a side project (not for marks): texture the plane with floor.jpg (nostalgic road map mat)
 
 function main() {
     // Retrieve <canvas> element
     var canvas = document.getElementById('webgl');
+    elemDoors = document.getElementById("spnDoors");
+    elemPoint = document.getElementById("spnPointLight");
+    elemDirec = document.getElementById("spnDirectLight");
 
     // Get the rendering context for WebGL
     var gl = getWebGLContext(canvas);
@@ -89,23 +128,31 @@ function main() {
     var u_NormalMatrix = gl.getUniformLocation(gl.program, 'u_NormalMatrix');
     var u_ProjMatrix = gl.getUniformLocation(gl.program, 'u_ProjMatrix');
     var u_LightColor = gl.getUniformLocation(gl.program, 'u_LightColor');
+    var u_LightColorB = gl.getUniformLocation(gl.program, 'u_LightColorB');
     var u_LightDirection = gl.getUniformLocation(gl.program, 'u_LightDirection');
+    var u_LightPosition = gl.getUniformLocation(gl.program, 'u_LightPosition');
 
     // Trigger using lighting or not
     var u_isLighting = gl.getUniformLocation(gl.program, 'u_isLighting');
+    var u_isPointLighting = gl.getUniformLocation(gl.program, 'u_isPointLighting');
 
-    if (!u_ModelMatrix || !u_ViewMatrix || !u_NormalMatrix || !u_ProjMatrix || !u_LightColor || !u_LightDirection || !u_isLighting) {
+    if (!u_ModelMatrix || !u_ViewMatrix || !u_NormalMatrix || !u_ProjMatrix || !u_LightColor || !u_LightColorB || !u_LightDirection || !u_isLighting || !u_LightPosition) {
         console.log('Failed to Get the storage locations of u_ModelMatrix, u_ViewMatrix, and/or u_ProjMatrix');
         return;
     }
 
-    // DIRECTIONAL LIGHTING // todo also add point lighting (headlights?)
-    // Set the light color (white)
+    // DIRECTIONAL LIGHTING
+    // Set the light color
     gl.uniform3f(u_LightColor, 1.0, 1.0, 1.0);
+    // POINT
+    gl.uniform3f(u_LightColorB, 1.0, 1.0, 1.0);
+
     // Set the light direction (in the world coordinate)
-    var lightDirection = new Vector3([0.5, 3.0, 4.0]);
+    var lightDirection = new Vector3([2.5, 3, 4.0]);
     lightDirection.normalize(); // Normalize
     gl.uniform3fv(u_LightDirection, lightDirection.elements);
+    // Set the light position for point light
+    gl.uniform3f(u_LightPosition, 0, 1.7, 0);
 
     // Calculate the view matrix and the projection matrix
     viewMatrix.setLookAt(0, 25, 50, xDisplacement, 0, zDisplacement, 0, 1, 0);
@@ -115,14 +162,25 @@ function main() {
     gl.uniformMatrix4fv(u_ProjMatrix, false, projMatrix.elements);
 
     document.onkeydown = document.onkeyup = function (e) {
-        e = e || event; // IE compatability
-        if (e.keyCode == 79) { // Door cooldown to avoid flickering doors
-            if (door_cooldown < 1) {
-                if (e.type == 'keydown') {
-                    door_cooldown = 3;
-                    doors_open = !doors_open;
-                    draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
-                }
+        e = e || event; // IE compatibility
+        if (e.keyCode == 75 && e.type == 'keydown') {
+            pointLighting = !pointLighting;
+            waitingForLightingDraw = true;
+            elemPoint.className = pointLighting ? "toggle on" : "toggle";
+            elemPoint.innerHTML = pointLighting ? "ON" : "OFF";
+        } else if (e.keyCode == 76 && e.type == 'keydown') {
+            directionalLighting = !directionalLighting;
+            waitingForLightingDraw = true;
+            elemDirec.className = directionalLighting ? "toggle on" : "toggle";
+            elemDirec.innerHTML = directionalLighting ? "ON" : "OFF";
+        } else if (e.keyCode == 79) {
+            // Door cooldown to avoid flickering doors
+            if (door_cooldown < 1 && e.type != 'keyup') {
+                door_cooldown = 6;
+                doors_open = !doors_open;
+                elemDoors.className = doors_open ? "toggle on" : "toggle";
+                elemDoors.innerHTML = doors_open ? "OPEN" : "CLOSED";
+                draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
             } else {
                 console.log("Cannot toggle doors so quickly - remaining cooldown: ", door_cooldown)
             }
@@ -137,13 +195,13 @@ function main() {
         if (door_cooldown > 0) {
             door_cooldown -= 1;
         }
-        checkKeys(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
+        checkKeys(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLighting);
         window.requestAnimationFrame(animateFrame);
     }
 
-    window.requestAnimationFrame(animateFrame);
+    draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLighting);
 
-    draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
+    window.requestAnimationFrame(animateFrame);
 }
 
 function turnCar(turnLeft, reversing) {
@@ -171,8 +229,8 @@ function moveCar(forward) {
     }
 }
 
-function checkKeys(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
-    var recognised = false;
+function checkKeys(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLighting) {
+    var recognised = waitingForLightingDraw;
     var reversing = false;
 
     // Move
@@ -220,7 +278,7 @@ function checkKeys(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
         gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements);
 
         // Redraw the scene
-        draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
+        draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLighting);
     }
 }
 
@@ -336,7 +394,7 @@ function initArrayBuffer(gl, attribute, data, num, type) {
 }
 
 function drawMainBody(gl, u_ModelMatrix, u_NormalMatrix) {
-    setColour(gl, [1, 0, 0.5]);
+    setColour(gl, [0.8, 0, 0.5]);
     pushMatrix(modelMatrix);
 
     // Reset translate and rotate before starting
@@ -355,7 +413,7 @@ function drawMainBody(gl, u_ModelMatrix, u_NormalMatrix) {
 }
 
 function drawCab(gl, u_ModelMatrix, u_NormalMatrix) {
-    setColour(gl, [0.25, 1, 0]);
+    setColour(gl, [0.25, 0.8, 0]);
     pushMatrix(modelMatrix);
     // Reset translate and rotate before starting
     modelMatrix.setTranslate(0, 0, 0);
@@ -466,7 +524,7 @@ function drawWheel(gl, u_ModelMatrix, u_NormalMatrix, wheelNum) {
 }
 
 function drawFloor(gl, u_ModelMatrix, u_NormalMatrix) {
-    setColour(gl, [1, 1, 1]);
+    setColour(gl, [0.5, 0.5, 0.5]);
     pushMatrix(modelMatrix);
 
     // Reset translate and rotate before starting
@@ -495,10 +553,11 @@ function drawCuboid(gl, n, u_ModelMatrix, u_NormalMatrix) {
     gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
 }
 
-function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
+function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLighting) {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    gl.uniform1i(u_isLighting, true); // Will apply lighting
+    gl.uniform1i(u_isLighting, directionalLighting); // Will apply directional lighting
+    gl.uniform1i(u_isPointLighting, pointLighting); // Will apply point lighting
 
     drawMainBody(gl, u_ModelMatrix, u_NormalMatrix);
     drawCab(gl, u_ModelMatrix, u_NormalMatrix);
