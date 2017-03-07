@@ -21,7 +21,7 @@ var VSHADER_SOURCE =
     '  {\n' +
     '     vec3 normal = normalize((u_NormalMatrix * a_Normal).xyz);\n' +
     '     float nDotL = max(dot(normal, u_LightDirection), 0.0);\n' +
-        // Calculate the color due to diffuse reflection
+    // Calculate the color due to diffuse reflection
     '     vec3 diffuse = u_LightColor * a_Color.rgb * nDotL;\n' +
     '     v_Color = vec4(diffuse, a_Color.a);\n' +
     '  }\n' +
@@ -43,7 +43,7 @@ var FSHADER_SOURCE =
     'varying vec4 v_Color;\n' +
     'uniform bool u_isPointLighting;\n' +
     'void main() {\n' +
-        // CHECK FOR POINT LIGHTING
+    // CHECK FOR POINT LIGHTING
     '  if(u_isPointLighting)\n' +
     '  {\n' +
     // Normalize the normal because it is interpolated and not 1.0 in length any more
@@ -57,7 +57,7 @@ var FSHADER_SOURCE =
     '    gl_FragColor = vec4(diffuse + v_Color.rgb, v_Color.a);\n' +
     '  }' +
     '  else' +
-    '  {\n'+
+    '  {\n' +
     '    gl_FragColor = v_Color;' +
     '  }\n' +
     '}\n';
@@ -93,10 +93,8 @@ var elemDoors;
 var elemPoint;
 var elemDirec;
 
-// TODO as a side project (not for marks): texture the plane with floor.jpg (nostalgic road map mat)
-
 function main() {
-    // Retrieve <canvas> element
+    // Retrieve DOM elements
     var canvas = document.getElementById('webgl');
     elemDoors = document.getElementById("spnDoors");
     elemPoint = document.getElementById("spnPointLight");
@@ -142,9 +140,8 @@ function main() {
     }
 
     // DIRECTIONAL LIGHTING
-    // Set the light color
     gl.uniform3f(u_LightColor, 1.0, 1.0, 1.0);
-    // POINT
+    // POINT LIGHTING
     gl.uniform3f(u_LightColorB, 1.0, 1.0, 1.0);
 
     // Set the light direction (in the world coordinate)
@@ -568,3 +565,5 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLighting
     }
     drawFloor(gl, u_ModelMatrix, u_NormalMatrix);
 }
+
+// TODO as a side project (not for marks): texture the plane with floor.jpg (nostalgic road map mat)
