@@ -1,4 +1,3 @@
-// Directional lighting demo: By Frederick Li
 // Vertex shader program
 var VSHADER_SOURCE =
     'attribute vec4 a_Position;\n' +
@@ -42,6 +41,9 @@ var viewMatrix = new Matrix4();  // The view matrix
 var projMatrix = new Matrix4();  // The projection matrix
 var g_normalMatrix = new Matrix4();  // Coordinate transformation matrix for normals
 var u_ViewMatrix;
+var vertices_length = 72; // known for the cube - changes when vertices array actually made if needed
+var g_matrixStack = [];
+var n;
 
 // Constant values
 var WHEEL_ANGLE_STEP = 8.0; // The amount the wheels turn (degrees) per forward/backward step
@@ -50,7 +52,7 @@ var DRIVE_DISPLACEMENT_STEP = 0.3; // The distance moved in a single step forwar
 
 // Starting values
 var wheel_rotation_angle = 0.0; // The wheel rotation x angle (degrees)
-var turning_angle = 135; // The car rotation y angle (degrees)
+var turning_angle = 0; // The car rotation y angle (degrees)
 var xDisplacement = 0.0;
 var zDisplacement = 0.0;
 var doors_open = false;
@@ -106,7 +108,7 @@ function main() {
     gl.uniform3fv(u_LightDirection, lightDirection.elements);
 
     // Calculate the view matrix and the projection matrix
-    viewMatrix.setLookAt(0, 30, 50, xDisplacement, 0, zDisplacement, 0, 1, 0);
+    viewMatrix.setLookAt(0, 25, 50, xDisplacement, 0, zDisplacement, 0, 1, 0);
     projMatrix.setPerspective(30, canvas.width / canvas.height, 1, 100);
     // Pass the model, view, and projection matrix to the uniform variable respectively
     gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements);
@@ -129,12 +131,17 @@ function main() {
         }
     };
 
-    window.setInterval(function () {
+    n = initVertexBuffers(gl, [0.5, 0.5, 0.5]);
+
+    function animateFrame() {
         if (door_cooldown > 0) {
             door_cooldown -= 1;
         }
-        checkKeys(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting)
-    }, 50);
+        checkKeys(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
+        window.requestAnimationFrame(animateFrame);
+    }
+
+    window.requestAnimationFrame(animateFrame);
 
     draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
 }
@@ -209,12 +216,33 @@ function checkKeys(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
         }
 
         // Force camera to always look at the car
-        viewMatrix.setLookAt(0, 30, 50, xDisplacement, 0, zDisplacement, 0, 1, 0);
+        viewMatrix.setLookAt(0, 25, 50, xDisplacement, 0, zDisplacement, 0, 1, 0);
         gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements);
 
         // Redraw the scene
         draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
     }
+}
+
+function pushMatrix(m) {
+    var m2 = new Matrix4(m);
+    g_matrixStack.push(m2);
+}
+
+function popMatrix() {
+    return g_matrixStack.pop();
+}
+
+function setColour(gl, baseColour) {
+    // Generate colors (DONE PER OBJECT - all vertices of each PART of the car the same colour)
+    var myColours = [];
+    while (myColours.length < vertices_length) { // 72 is length of vertex array for the cube
+        myColours.push(baseColour[0]);
+        myColours.push(baseColour[1]);
+        myColours.push(baseColour[2]);
+    }
+    var colors = new Float32Array(myColours);
+    if (!initArrayBuffer(gl, 'a_Color', colors, 3, gl.FLOAT)) return -1;
 }
 
 function initVertexBuffers(gl, baseColour) {
@@ -234,6 +262,7 @@ function initVertexBuffers(gl, baseColour) {
         -1.0, -1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0, 1.0, -1.0, -1.0, 1.0, // v7-v4-v3-v2 down
         1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0  // v4-v7-v6-v5 back
     ]);
+    vertices_length = vertices.length;
 
     // Generate colors - all vertices of each PART of the car the same colour
     var myColours = [];
@@ -307,12 +336,8 @@ function initArrayBuffer(gl, attribute, data, num, type) {
 }
 
 function drawMainBody(gl, u_ModelMatrix, u_NormalMatrix) {
-    // Set the vertex coordinates and color (for the cube)
-    var n = initVertexBuffers(gl, [1, 0, 0.5]);
-    if (n < 0) {
-        console.log('Failed to set the vertex information');
-        return;
-    }
+    setColour(gl, [1, 0, 0.5]);
+    pushMatrix(modelMatrix);
 
     // Reset translate and rotate before starting
     modelMatrix.setTranslate(0, 0, 0);
@@ -325,26 +350,13 @@ function drawMainBody(gl, u_ModelMatrix, u_NormalMatrix) {
     // Scale to shape and size
     modelMatrix.scale(1.4, 0.6, 2);
 
-    // Pass the model matrix to the uniform variable
-    gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements);
-
-    // Calculate the normal transformation matrix and pass it to u_NormalMatrix
-    g_normalMatrix.setInverseOf(modelMatrix);
-    g_normalMatrix.transpose();
-    gl.uniformMatrix4fv(u_NormalMatrix, false, g_normalMatrix.elements);
-
-    // Draw it
-    gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
+    drawCuboid(gl, n, u_ModelMatrix, u_NormalMatrix);
+    modelMatrix = popMatrix();
 }
 
 function drawCab(gl, u_ModelMatrix, u_NormalMatrix) {
-    // Set the vertex coordinates and color (for the cube)
-    var n = initVertexBuffers(gl, [0.25, 1, 0]);
-    if (n < 0) {
-        console.log('Failed to set the vertex information');
-        return;
-    }
-
+    setColour(gl, [0.25, 1, 0]);
+    pushMatrix(modelMatrix);
     // Reset translate and rotate before starting
     modelMatrix.setTranslate(0, 0, 0);
     modelMatrix.setRotate(0, 0, 0);
@@ -354,34 +366,22 @@ function drawCab(gl, u_ModelMatrix, u_NormalMatrix) {
     // Spin around with car
     modelMatrix.rotate(turning_angle, 0, 1, 0);
     // Move model onto car body
-    modelMatrix.translate(0, 0.6, 0.45);
+    modelMatrix.translate(0, 1.0, 0.45);
     // Scale to size
-    modelMatrix.scale(1.35, 0.8, 1.5);
+    modelMatrix.scale(1.3, 0.5, 1.5);
 
-    // Pass the model matrix to the uniform variable
-    gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements);
-
-    // Calculate the normal transformation matrix and pass it to u_NormalMatrix
-    g_normalMatrix.setInverseOf(modelMatrix);
-    g_normalMatrix.transpose();
-    gl.uniformMatrix4fv(u_NormalMatrix, false, g_normalMatrix.elements);
-
-    // Draw it
-    gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
+    drawCuboid(gl, n, u_ModelMatrix, u_NormalMatrix);
+    modelMatrix = popMatrix();
 }
 
 function drawDoor(gl, u_ModelMatrix, u_NormalMatrix, onLeft) {
     // Set the vertex coordinates and color (for the cube)
-    var n;
     if (onLeft) {
-        n = initVertexBuffers(gl, [0, 0.75, 1]);
+        setColour(gl, [0, 0.75, 1]);
     } else {
-        n = initVertexBuffers(gl, [0, 0, 1]);
+        setColour(gl, [0, 0, 1]);
     }
-    if (n < 0) {
-        console.log('Failed to set the vertex information');
-        return;
-    }
+    pushMatrix(modelMatrix);
 
     // Reset translate and rotate before starting
     modelMatrix.setTranslate(0, 0, 0);
@@ -412,39 +412,26 @@ function drawDoor(gl, u_ModelMatrix, u_NormalMatrix, onLeft) {
     // Scale to size
     modelMatrix.scale(0.1, 0.4, 1);
 
-    // Pass the model matrix to the uniform variable
-    gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements);
-
-    // Calculate the normal transformation matrix and pass it to u_NormalMatrix
-    g_normalMatrix.setInverseOf(modelMatrix);
-    g_normalMatrix.transpose();
-    gl.uniformMatrix4fv(u_NormalMatrix, false, g_normalMatrix.elements);
-
-    // Draw it
-    gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
+    drawCuboid(gl, n, u_ModelMatrix, u_NormalMatrix);
+    modelMatrix = popMatrix();
 }
 
 function drawWheel(gl, u_ModelMatrix, u_NormalMatrix, wheelNum) {
-    // Set the vertex coordinates and color (for the cube)
-    var n;
     switch (wheelNum) {
         case 1:
-            n = initVertexBuffers(gl, [1, 0.62, 0.5]);
+            setColour(gl, [1, 0.62, 0.5]);
             break;
         case 2:
-            n = initVertexBuffers(gl, [0.64, 0.16, 0.16]);
+            setColour(gl, [0.64, 0.16, 0.16]);
             break;
         case 3:
-            n = initVertexBuffers(gl, [0.5, 0.5, 0]);
+            setColour(gl, [0.5, 0.5, 0]);
             break;
         case 4:
-            n = initVertexBuffers(gl, [0.46, 0.53, 0.6]);
+            setColour(gl, [0.46, 0.53, 0.6]);
             break;
     }
-    if (n < 0) {
-        console.log('Failed to set the vertex information');
-        return;
-    }
+    pushMatrix(modelMatrix);
 
     // Reset translate and rotate before starting
     modelMatrix.setTranslate(0, 0, 0);
@@ -474,25 +461,13 @@ function drawWheel(gl, u_ModelMatrix, u_NormalMatrix, wheelNum) {
     // Scale to size
     modelMatrix.scale(0.1, 0.4, 0.4);
 
-    // Pass the model matrix to the uniform variable
-    gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements);
-
-    // Calculate the normal transformation matrix and pass it to u_NormalMatrix
-    g_normalMatrix.setInverseOf(modelMatrix);
-    g_normalMatrix.transpose();
-    gl.uniformMatrix4fv(u_NormalMatrix, false, g_normalMatrix.elements);
-
-    // Draw it
-    gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
+    drawCuboid(gl, n, u_ModelMatrix, u_NormalMatrix);
+    modelMatrix = popMatrix();
 }
 
 function drawFloor(gl, u_ModelMatrix, u_NormalMatrix) {
-    // Set the vertex coordinates and color (for the cube)
-    var n = initVertexBuffers(gl, [1, 1, 1]);
-    if (n < 0) {
-        console.log('Failed to set the vertex information');
-        return;
-    }
+    setColour(gl, [1, 1, 1]);
+    pushMatrix(modelMatrix);
 
     // Reset translate and rotate before starting
     modelMatrix.setTranslate(0, 0, 0);
@@ -503,6 +478,11 @@ function drawFloor(gl, u_ModelMatrix, u_NormalMatrix) {
     // Scale to shape and size
     modelMatrix.scale(20, 0.1, 20);
 
+    drawCuboid(gl, n, u_ModelMatrix, u_NormalMatrix);
+    modelMatrix = popMatrix();
+}
+
+function drawCuboid(gl, n, u_ModelMatrix, u_NormalMatrix) {
     // Pass the model matrix to the uniform variable
     gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements);
 
