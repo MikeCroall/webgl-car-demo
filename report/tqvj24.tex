@@ -65,7 +65,7 @@
 \end{description}
 
 \subsection*{b)}
-\begin{lstlisting}[caption=Colour and vertices in same array]
+\begin{lstlisting}[title=Colour and vertices in same array]
 var polygonVerticesAndColours = new Float32Array([
      0.0,  1.0,  -4.0,  0.4,  1.0,  0.5,
     -0.5, -1.0,  -4.0,  0.4,  0.7,  0.4,
@@ -116,19 +116,20 @@ gl.enableVertexAttribArray(a_Color);
 % (Reference: WebGL Prog. Guide Chapter 4, Table 4.1) Suppose drawBox(m) is a
 % function to draw a transformed box according to the transformation matrix m. That is, if m is
 % a rotation matrix, the function will draw a rotated box.
-\subsubsection*{i.}
 % Explain the meaning of the following code segment and state the result obtained:
-\begin{lstlisting}[caption=Explaining the meaning]
+\begin{lstlisting}[title=Explaining the meaning]
     m.setRotate(angle, 0.0, 1.0, 0.0);
     m.translate(1.0, 3.0, -5.0);
     drawBox(m);
 \end{lstlisting}
+\subsubsection*{i.}
+
 The above code block ensures that the matrix $m$ is rotated around the y axis by $angle$ degrees from $0$, regardless of current rotation before this code block, and then is translated by $+1.0$in the x axis, $+3.0$ in the y axis, $-5.0$ in the z axis, relative to where m was before this code block. The matrix is then drawn.\\
  % [5 marks]
 \subsubsection*{ii.}
 % ii) Explain whether you will get the same result if m.setRotate() has been replaced by
 % m.rotate().
-In this case, replacing $setRotate$ by $rotate$ will \textit{not} give the same result. $setRotate$ is done before 'chain-able' transformations, however $rotate$ is not, and so with $rotate$ it would be 'chained' with $transform$, which would mean that the transform is actually carried out first, as the 'chain-able' commands are carried out in reverse order.\\\\In this case, the matrix would be transformed away from it's current position, and then rotated, still about the origin. If we assume it started centered about $(0,0,0)$, it would be moved to $(1.0, 3.0, -5.0)$, and then rotated about the origin, around the y axis, causing it to move in a big circle, as opposed to turning 'on the spot'.
+In this case, replacing $setRotate$ by $rotate$ will \textit{not} give the same result. $setRotate$ is done before 'chain-able' transformations, however $rotate$ is not, and so with $rotate$ it would be 'chained' with $transform$, which would mean that the transform is actually carried out first, as the 'chain-able' commands are carried out in reverse order. Additionally, if the matrix already had some rotation applied, $setRotate$ overwrites this, but $rotate$ adds to it.\\\\In this case, the matrix would be transformed away from it's current position, and then rotated, still about the origin. If we assume it started centered about $(0,0,0)$, it would be moved to $(1.0, 3.0, -5.0)$, and then rotated about the origin, around the y axis, causing it to move in a big circle, as opposed to turning 'on the spot'.
 
 \section*{Question 2}
 The included files \texttt{tqvj24.html} and \texttt{tqvj24.js} are my code for this question.
