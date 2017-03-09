@@ -1,10 +1,11 @@
 \documentclass[a4paper,12pt]{article}
 \usepackage{caption}
 \usepackage{subcaption}
-
+\usepackage{graphicx}
+\graphicspath{ {img/} }
 \usepackage{listings}
 \usepackage{color}
-\definecolor{lightgray}{rgb}{.9,.9,.9}
+\definecolor{lightgray}{rgb}{.95,.95,.95}
 \definecolor{darkgray}{rgb}{.4,.4,.4}
 \definecolor{purple}{rgb}{0.65, 0.12, 0.82}
 
@@ -109,8 +110,8 @@ gl.enableVertexAttribArray(a_Color);
 \end{lstlisting}
 
 \subsection*{c)}
-TODO SCENE GRAPH
-
+\includegraphics[width=0.95\textwidth]{webgl-car-demo}
+\newpage
 \subsection*{d)}
 % (Reference: WebGL Prog. Guide Chapter 4, Table 4.1) Suppose drawBox(m) is a
 % function to draw a transformed box according to the transformation matrix m. That is, if m is
