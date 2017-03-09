@@ -457,9 +457,9 @@ function drawDoor(gl, u_ModelMatrix, u_NormalMatrix, onLeft) {
         // Translate back
         modelMatrix.translate(-0.1, 0, -1);
         if (onLeft) {
-            modelMatrix.rotate(-45, 0, 1, 0);
+            modelMatrix.rotate(-65, 0, 1, 0);
         } else {
-            modelMatrix.rotate(45, 0, 1, 0);
+            modelMatrix.rotate(65, 0, 1, 0);
         }
         // Translate to origin
         modelMatrix.translate(0.1, 0, 1);
