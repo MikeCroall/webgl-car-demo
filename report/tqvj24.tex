@@ -1,6 +1,45 @@
 \documentclass[a4paper,12pt]{article}
 \usepackage{caption}
 \usepackage{subcaption}
+
+\usepackage{listings}
+\usepackage{color}
+\definecolor{lightgray}{rgb}{.9,.9,.9}
+\definecolor{darkgray}{rgb}{.4,.4,.4}
+\definecolor{purple}{rgb}{0.65, 0.12, 0.82}
+
+\lstdefinelanguage{JavaScript}{
+  keywords={typeof, new, true, false, catch, function, return, null, catch, switch, var, if, in, while, do, else, case, break},
+  keywordstyle=\color{blue}\bfseries,
+  ndkeywords={class, export, boolean, throw, implements, import, this},
+  ndkeywordstyle=\color{darkgray}\bfseries,
+  identifierstyle=\color{black},
+  sensitive=false,
+  comment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  commentstyle=\color{purple}\ttfamily,
+  stringstyle=\color{red}\ttfamily,
+  morestring=[b]',
+  morestring=[b]"
+}
+
+\lstset{
+   language=JavaScript,
+   backgroundcolor=\color{lightgray},
+   extendedchars=true,
+   basicstyle=\footnotesize\ttfamily,
+   showstringspaces=false,
+   showspaces=false,
+   numbers=left,
+   numberstyle=\footnotesize,
+   numbersep=9pt,
+   tabsize=2,
+   breaklines=true,
+   showtabs=false,
+   captionpos=b
+}
+
+
 \usepackage{fancyhdr}
 \pagestyle{fancy}
 \lhead{tqvj24}
@@ -25,8 +64,8 @@
 \end{description}
 
 \subsection*{b)}
-\begin{verbatim}
-var polygonVerticesAndColurs = new Float32Array([
+\begin{lstlisting}[caption=Colour and vertices in same array]
+var polygonVerticesAndColours = new Float32Array([
      0.0,  1.0,  -4.0,  0.4,  1.0,  0.5,
     -0.5, -1.0,  -4.0,  0.4,  0.7,  0.4,
      0.5, -1.0,  -4.0,  0.5,  0.4,  0.5,
@@ -45,10 +84,8 @@ if (!vertexColorbuffer) {
 
 // Write the vertex information and enable it
 gl.bindBuffer(gl.ARRAY_BUFFER, vertexColorbuffer);
-gl.bufferData(gl.ARRAY_BUFFER, polygonVerticesAndColurs, gl.STATIC_DRAW);
-\end{verbatim}
-Below is further code relating to using this array, as I was unsure how much code needed to be included.\newpage
-\begin{verbatim}
+gl.bufferData(gl.ARRAY_BUFFER, polygonVerticesAndColours, gl.STATIC_DRAW);
+
 var FSIZE = verticesColors.BYTES_PER_ELEMENT;
 
 // Assign the buffer object to a_Position and enable the assignment
@@ -69,24 +106,28 @@ if(a_Color < 0) {
 }
 gl.vertexAttribPointer(a_Color, 3, gl.FLOAT, false, FSIZE * 6, FSIZE * 3);
 gl.enableVertexAttribArray(a_Color);
-\end{verbatim}
+\end{lstlisting}
 
 \subsection*{c)}
 TODO SCENE GRAPH
 
-\subsection*{d) TODO}
+\subsection*{d)}
 % (Reference: WebGL Prog. Guide Chapter 4, Table 4.1) Suppose drawBox(m) is a
 % function to draw a transformed box according to the transformation matrix m. That is, if m is
 % a rotation matrix, the function will draw a rotated box.
 \subsubsection*{i.}
 % Explain the meaning of the following code segment and state the result obtained:
-% m.setRotate(angle, 0.0, 1.0, 0.0);
-% m.translate(1.0, 3.0, -5.0);
-% drawBox(m);
-% [5 marks]
+\begin{lstlisting}[caption=Explaining the meaning]
+    m.setRotate(angle, 0.0, 1.0, 0.0);
+    m.translate(1.0, 3.0, -5.0);
+    drawBox(m);
+\end{lstlisting}
+The above code block ensures that the matrix $m$ is rotated around the y axis by $angle$ degrees from $0$, regardless of current rotation before this code block, and then is translated by $+1.0$in the x axis, $+3.0$ in the y axis, $-5.0$ in the z axis, relative to where m was before this code block. The matrix is then drawn.\\
+ % [5 marks]
 \subsubsection*{ii.}
 % ii) Explain whether you will get the same result if m.setRotate() has been replaced by
 % m.rotate().
+In this case, replacing $setRotate$ by $rotate$ will \textit{not} give the same result. $setRotate$ is done before 'chain-able' transformations, however $rotate$ is not, and so with $rotate$ it would be 'chained' with $transform$, which would mean that the transform is actually carried out first, as the 'chain-able' commands are carried out in reverse order.\\\\In this case, the matrix would be transformed away from it's current position, and then rotated, still about the origin. If we assume it started centered about $(0,0,0)$, it would be moved to $(1.0, 3.0, -5.0)$, and then rotated about the origin, around the y axis, causing it to move in a big circle, as opposed to turning 'on the spot'.
 
 \section*{Question 2}
 The included files \texttt{tqvj24.html} and \texttt{tqvj24.js} are my code for this question.
