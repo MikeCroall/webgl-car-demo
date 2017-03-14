@@ -87,7 +87,7 @@ if (!vertexColorbuffer) {
 gl.bindBuffer(gl.ARRAY_BUFFER, vertexColorbuffer);
 gl.bufferData(gl.ARRAY_BUFFER, polygonVerticesAndColours, gl.STATIC_DRAW);
 
-var FSIZE = verticesColors.BYTES_PER_ELEMENT;
+var FSIZE = polygonVerticesAndColours.BYTES_PER_ELEMENT;
 
 // Assign the buffer object to a_Position and enable the assignment
 var a_Position = gl.getAttribLocation(gl.program, 'a_Position');
@@ -124,12 +124,12 @@ gl.enableVertexAttribArray(a_Color);
 \end{lstlisting}
 \subsubsection*{i.}
 
-The above code block ensures that the matrix $m$ is rotated around the y axis by $angle$ degrees from $0$, regardless of current rotation before this code block, and then is translated by $+1.0$in the x axis, $+3.0$ in the y axis, $-5.0$ in the z axis, relative to where m was before this code block. The matrix is then drawn.
+The above code block ensures that the matrix $m$ is rotated around the y axis by $angle$ degrees from $0$, regardless of current rotation before this code block, and then is translated by $+1.0$ in the x axis, $+3.0$ in the y axis, $-5.0$ in the z axis, relative to where m was before this code block. The matrix is then drawn.
  % [5 marks]
 \subsubsection*{ii.}
 % ii) Explain whether you will get the same result if m.setRotate() has been replaced by
 % m.rotate().
-In this case, replacing $setRotate$ by $rotate$ will \textit{not} give the same result. $setRotate$ is done before 'chain-able' transformations, however $rotate$ is not, and so with $rotate$ it would be 'chained' with $transform$, which would mean that the transform is actually carried out first, as the 'chain-able' commands are carried out in reverse order. Additionally, if the matrix already had some rotation applied, $setRotate$ overwrites this, but $rotate$ adds to it.\\\\In this case, the matrix would be transformed away from it's current position, and then rotated, still about the origin. If we assume it started centered about $(0,0,0)$, it would be moved to $(1.0, 3.0, -5.0)$, and then rotated about the origin, around the y axis, causing it to move in a big circle, as opposed to turning 'on the spot'.
+In this case, replacing $setRotate$ by $rotate$ will \textit{not} give the same result. $setRotate$ is done before 'chain-able' transformations, however $rotate$ is not, $rotate$ would be 'chained' with $transform$, which would mean that the transform is actually carried out first, as the 'chain-able' commands are carried out in reverse order. Additionally, if the matrix already had some rotation applied, $setRotate$ overwrites this, but $rotate$ adds to it.\\\\In this case, having replaced $setRotate$ by $rotate$, the matrix would be transformed away from it's current position, and then rotated, still about the origin. If we assume it started centered about $(0,0,0)$, it would be moved to $(1.0, 3.0, -5.0)$, and then rotated about the origin, around the y axis, causing it to move in a big circle, as opposed to turning 'on the spot'.
 
 \section*{Question 2}
 The included files \texttt{tqvj24.html} and \texttt{tqvj24.js} are my code for this question.

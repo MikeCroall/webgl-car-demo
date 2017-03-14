@@ -149,7 +149,7 @@ function main() {
     lightDirection.normalize(); // Normalize
     gl.uniform3fv(u_LightDirection, lightDirection.elements);
     // Set the light position for point light
-    gl.uniform3f(u_LightPosition, 0, 1.7, 0);
+    gl.uniform3f(u_LightPosition, 0, 2.5, 0); // y was 1.7
 
     // Calculate the view matrix and the projection matrix
     viewMatrix.setLookAt(0, 25, 50, xDisplacement, 0, zDisplacement, 0, 1, 0);
