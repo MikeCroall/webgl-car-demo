@@ -43,12 +43,18 @@ var FSHADER_SOURCE = `
     varying vec3 v_Position;
     varying vec4 v_Color;
     uniform bool u_isPointLighting;
+    uniform sampler2D u_Sampler;
+    varying vec2 v_TexCoords;
     void main() {
+        vec3 normal = normalize(v_Normal);
+        vec3 lightDirection = normalize(u_LightPosition - v_Position);
+        float nDotL = max(dot(lightDirection, normal), 0.0);
+        vec3 diffuse = u_LightColorB * v_Color.rgb * nDotL;
+        if (u_UseTextures) {
+            vec4 TexColor = texture2D(u_Sampler, v_TexCoords);
+            diffuse = u_LightColorB * TexColor.rgb * nDotL * 1.2;
+        }
         if(u_isPointLighting) {
-            vec3 normal = normalize(v_Normal);
-            vec3 lightDirection = normalize(u_LightPosition - v_Position);
-            float nDotL = max(dot(lightDirection, normal), 0.0);
-            vec3 diffuse = u_LightColorB * v_Color.rgb * nDotL;
             gl_FragColor = vec4(diffuse + v_Color.rgb, v_Color.a);
         } else {
             gl_FragColor = v_Color;
@@ -69,6 +75,7 @@ var n;
 var WHEEL_ANGLE_STEP = 8.0; // The amount the wheels turn (degrees) per forward/backward step
 var TURNING_ANGLE_STEP = 2.5; // The increments of rotation angle (in degrees) for turning
 var DRIVE_DISPLACEMENT_STEP = 0.25; // The distance moved in a single step forward/backward
+var PLANE_SIDE_LENGTH = 40;
 
 // Starting values
 var wheel_rotation_angle = 0.0; // The wheel rotation x angle (degrees)
@@ -80,12 +87,14 @@ var door_cooldown = 0;
 var heldKeys = {};
 var directionalLighting = true;
 var pointLighting = true;
+var floorTexture = false;
 var waitingForLightingDraw = false;
 
 // HTML Elements (for controls to show values of toggles)
 var elemDoors;
 var elemPoint;
 var elemDirec;
+var elemTextu;
 
 function main() {
     // Retrieve DOM elements
@@ -93,6 +102,7 @@ function main() {
     elemDoors = document.getElementById("spnDoors");
     elemPoint = document.getElementById("spnPointLight");
     elemDirec = document.getElementById("spnDirectLight");
+    elemTextu = document.getElementById("spnFloorTexture");
 
     // Get the rendering context for WebGL
     var gl = getWebGLContext(canvas);
@@ -127,8 +137,10 @@ function main() {
     // Trigger using lighting or not
     var u_isLighting = gl.getUniformLocation(gl.program, 'u_isLighting');
     var u_isPointLighting = gl.getUniformLocation(gl.program, 'u_isPointLighting');
+    var u_UseTextures = gl.getUniformLocation(gl.program, "u_UseTextures");
 
-    if (!u_ModelMatrix || !u_ViewMatrix || !u_NormalMatrix || !u_ProjMatrix || !u_LightColor || !u_LightColorB || !u_LightDirection || !u_isLighting || !u_LightPosition) {
+
+    if (!u_ModelMatrix || !u_ViewMatrix || !u_NormalMatrix || !u_ProjMatrix || !u_LightColor || !u_LightColorB || !u_LightDirection || !u_isLighting || !u_LightPosition || !u_UseTextures) {
         console.log('Failed to Get the storage locations of u_ModelMatrix, u_ViewMatrix, and/or u_ProjMatrix');
         return;
     }
@@ -152,21 +164,53 @@ function main() {
     gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements);
     gl.uniformMatrix4fv(u_ProjMatrix, false, projMatrix.elements);
 
+    var Cubetexture = gl.createTexture();   // Create a texture object
+    if (!Cubetexture) {
+      console.log('Failed to create the texture object');
+      return false;
+    }
+
+    // Get the storage location of u_Sampler
+    var u_Sampler = gl.getUniformLocation(gl.program, 'u_Sampler');
+    if (!u_Sampler) {
+      console.log('Failed to get the storage location of u_Sampler');
+      return false;
+    }
+
+    Cubetexture.image = new Image();  // Create the image object
+    if (!Cubetexture.image) {
+      console.log("Failed to create the image object");
+      return false;
+    }
+
+    // Tell the browser to load an image
+    // Register the event handler to be called on loading an image
+    Cubetexture.image.onload = function(){
+        draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLighting, Cubetexture, u_Sampler, u_UseTextures);
+
+        window.requestAnimationFrame(animateFrame);
+    };
+
     document.onkeydown = document.onkeyup = function (e) {
         e = e || event; // IE compatibility
-        if (e.keyCode == 75 && e.type == 'keydown') {
+        if (e.keyCode == 75 && e.type == "keydown") {
             pointLighting = !pointLighting;
             waitingForLightingDraw = true;
             elemPoint.className = pointLighting ? "toggle on" : "toggle";
             elemPoint.innerHTML = pointLighting ? "ON" : "OFF";
-        } else if (e.keyCode == 76 && e.type == 'keydown') {
+        } else if (e.keyCode == 76 && e.type == "keydown") {
             directionalLighting = !directionalLighting;
             waitingForLightingDraw = true;
             elemDirec.className = directionalLighting ? "toggle on" : "toggle";
             elemDirec.innerHTML = directionalLighting ? "ON" : "OFF";
+        } else if (e.keyCode == 84 && e.type == "keydown") {
+            floorTexture = !floorTexture;
+            waitingForLightingDraw = true;
+            elemTextu.className = floorTexture ? "toggle on" : "toggle";
+            elemTextu.innerHTML = floorTexture ? "ON" : "OFF";
         } else if (e.keyCode == 79) {
             // Door cooldown to avoid flickering doors
-            if (door_cooldown < 1 && e.type != 'keyup') {
+            if (door_cooldown < 1 && e.type != "keyup") {
                 door_cooldown = 6;
                 doors_open = !doors_open;
                 elemDoors.className = doors_open ? "toggle on" : "toggle";
@@ -176,7 +220,7 @@ function main() {
                 console.log("Cannot toggle doors so quickly - remaining cooldown: ", door_cooldown)
             }
         } else {
-            heldKeys[e.keyCode] = e.type == 'keydown';
+            heldKeys[e.keyCode] = e.type == "keydown";
         }
     };
 
@@ -186,13 +230,10 @@ function main() {
         if (door_cooldown > 0) {
             door_cooldown -= 1;
         }
-        checkKeys(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLighting);
+        checkKeys(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLighting, Cubetexture, u_Sampler, u_UseTextures);
         window.requestAnimationFrame(animateFrame);
     }
-
-    draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLighting);
-
-    window.requestAnimationFrame(animateFrame);
+    Cubetexture.image.src = '../../floor.jpg';
 }
 
 function turnCar(turnLeft, reversing) {
@@ -220,7 +261,7 @@ function moveCar(forward) {
     }
 }
 
-function checkKeys(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLighting) {
+function checkKeys(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLighting, Cubetexture, u_Sampler, u_UseTextures) {
     var recognised = waitingForLightingDraw;
     var reversing = false;
 
@@ -251,17 +292,17 @@ function checkKeys(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLig
     // Only update things if buttons are held
     if (recognised) {
         // Bound car to plain (plain is -20 to 20, avoid overhanging wheels etc)
-        if (xDisplacement > 18) {
-            xDisplacement = 18;
+        if (xDisplacement > PLANE_SIDE_LENGTH - 2) {
+            xDisplacement = PLANE_SIDE_LENGTH - 2;
         }
-        if (xDisplacement < -18) {
-            xDisplacement = -18;
+        if (xDisplacement < -(PLANE_SIDE_LENGTH - 2)) {
+            xDisplacement = -(PLANE_SIDE_LENGTH - 2);
         }
-        if (zDisplacement > 18) {
-            zDisplacement = 18;
+        if (zDisplacement > PLANE_SIDE_LENGTH - 2) {
+            zDisplacement = PLANE_SIDE_LENGTH - 2;
         }
-        if (zDisplacement < -18) {
-            zDisplacement = -18;
+        if (zDisplacement < -(PLANE_SIDE_LENGTH - 2)) {
+            zDisplacement = -(PLANE_SIDE_LENGTH - 2);
         }
 
         // Force camera to always look at the car
@@ -269,7 +310,7 @@ function checkKeys(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLig
         gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements);
 
         // Redraw the scene
-        draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLighting);
+        draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLighting, Cubetexture, u_Sampler, u_UseTextures);
     }
 }
 
@@ -331,6 +372,16 @@ function initVertexBuffers(gl, baseColour) {
         0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0   // v4-v7-v6-v5 back
     ]);
 
+    // Texture Coordinates
+    var texCoords = new Float32Array([
+      1.0, 1.0,    0.0, 1.0,   0.0, 0.0,   1.0, 0.0,  // v0-v1-v2-v3 front
+      0.0, 1.0,    0.0, 0.0,   1.0, 0.0,   1.0, 1.0,  // v0-v3-v4-v5 right
+      1.0, 0.0,    1.0, 1.0,   0.0, 1.0,   0.0, 0.0,  // v0-v5-v6-v1 up
+      1.0, 1.0,    0.0, 1.0,   0.0, 0.0,   1.0, 0.0,  // v1-v6-v7-v2 left
+      0.0, 0.0,    1.0, 0.0,   1.0, 1.0,   0.0, 1.0,  // v7-v4-v3-v2 down
+      0.0, 0.0,    1.0, 0.0,   1.0, 1.0,   0.0, 1.0   // v4-v7-v6-v5 back
+    ]);
+
     // Indices of the vertices
     var indices = new Uint8Array([
         0, 1, 2, 0, 2, 3,    // front
@@ -345,6 +396,7 @@ function initVertexBuffers(gl, baseColour) {
     if (!initArrayBuffer(gl, 'a_Position', vertices, 3, gl.FLOAT)) return -1;
     if (!initArrayBuffer(gl, 'a_Color', colors, 3, gl.FLOAT)) return -1;
     if (!initArrayBuffer(gl, 'a_Normal', normals, 3, gl.FLOAT)) return -1;
+    if (!initArrayBuffer(gl, 'a_TexCoords', texCoords, 2)) return -1;
 
     // Write the indices to the buffer object
     var indexBuffer = gl.createBuffer();
@@ -369,13 +421,15 @@ function initArrayBuffer(gl, attribute, data, num, type) {
     // Write date into the buffer object
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+    var FSIZE = data.BYTES_PER_ELEMENT;
+
     // Assign the buffer object to the attribute variable
     var a_attribute = gl.getAttribLocation(gl.program, attribute);
     if (a_attribute < 0) {
         console.log('Failed to get the storage location of ' + attribute);
         return false;
     }
-    gl.vertexAttribPointer(a_attribute, num, type, false, 0, 0);
+    gl.vertexAttribPointer(a_attribute, num, gl.FLOAT, false, FSIZE * num, 0);
     // Enable the assignment of the buffer object to the attribute variable
     gl.enableVertexAttribArray(a_attribute);
 
@@ -525,7 +579,7 @@ function drawFloor(gl, u_ModelMatrix, u_NormalMatrix) {
     // Move to correct y level for floor
     modelMatrix.translate(0, -1.5, 0);
     // Scale to shape and size
-    modelMatrix.scale(20, 0.1, 20);
+    modelMatrix.scale(PLANE_SIDE_LENGTH, 0.1, PLANE_SIDE_LENGTH);
 
     drawCuboid(gl, n, u_ModelMatrix, u_NormalMatrix);
     modelMatrix = popMatrix();
@@ -544,12 +598,27 @@ function drawCuboid(gl, n, u_ModelMatrix, u_NormalMatrix) {
     gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
 }
 
-function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLighting) {
+function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLighting, texture, u_Sampler, u_UseTextures) {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+    // Enable texture unit0
+    gl.activeTexture(gl.TEXTURE0);
+
+    // Bind the texture object to the target
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+
+    // Set the texture image
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, texture.image);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+    // Assign u_Sampler to TEXTURE0
+    gl.uniform1i(u_Sampler, 0);
+
+    // Enable texture mapping
     gl.uniform1i(u_isLighting, directionalLighting); // Will apply directional lighting
     gl.uniform1i(u_isPointLighting, pointLighting); // Will apply point lighting
 
+    gl.uniform1i(u_UseTextures, false);
     drawMainBody(gl, u_ModelMatrix, u_NormalMatrix);
     drawCab(gl, u_ModelMatrix, u_NormalMatrix);
     drawDoor(gl, u_ModelMatrix, u_NormalMatrix, true); // Left
@@ -557,7 +626,6 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLighting
     for (var wheelNum = 1; wheelNum <= 4; wheelNum++) { // All 4 wheels
         drawWheel(gl, u_ModelMatrix, u_NormalMatrix, wheelNum);
     }
+    gl.uniform1i(u_UseTextures, floorTexture);
     drawFloor(gl, u_ModelMatrix, u_NormalMatrix);
 }
-
-// TODO as a side project (not for marks): texture the plane with floor.jpg (nostalgic road map mat)
