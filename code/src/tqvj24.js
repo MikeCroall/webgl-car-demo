@@ -1,66 +1,60 @@
 // Vertex shader program
-var VSHADER_SOURCE =
-    'attribute vec4 a_Position;\n' +
-    'attribute vec4 a_Color;\n' +
-    'attribute vec4 a_Normal;\n' +        // Normal
-    'uniform mat4 u_ModelMatrix;\n' +
-    'uniform mat4 u_NormalMatrix;\n' +
-    'uniform mat4 u_ViewMatrix;\n' +
-    'uniform mat4 u_ProjMatrix;\n' +
-    'uniform vec3 u_LightColor;\n' +     // Light color
-    'uniform vec3 u_LightDirection;\n' + // Light direction (in the world coordinate, normalized)
-    'varying vec4 v_Color;\n' +
-    'uniform bool u_isLighting;\n' +
-    'varying vec3 v_Normal;\n' +
-    'varying vec3 v_Position;\n' +
-    'void main() {\n' +
-    '  gl_Position = u_ProjMatrix * u_ViewMatrix * u_ModelMatrix * a_Position;\n' +
-    '  v_Position = vec3(u_ModelMatrix * a_Position);\n' +
-    '  v_Normal = normalize(vec3(u_NormalMatrix * a_Normal));\n' +
-    '  if(u_isLighting)\n' +
-    '  {\n' +
-    '     vec3 normal = normalize((u_NormalMatrix * a_Normal).xyz);\n' +
-    '     float nDotL = max(dot(normal, u_LightDirection), 0.0);\n' +
-    // Calculate the color due to diffuse reflection
-    '     vec3 diffuse = u_LightColor * a_Color.rgb * nDotL;\n' +
-    '     v_Color = vec4(diffuse, a_Color.a);\n' +
-    '  }\n' +
-    '  else\n' +
-    '  {\n' +
-    '     v_Color = a_Color;\n' +
-    '  }\n' +
-    '}\n';
+var VSHADER_SOURCE = `
+    attribute vec4 a_Position;
+    attribute vec4 a_Color;
+    attribute vec4 a_Normal;
+    attribute vec2 a_TexCoords;
+    uniform mat4 u_ModelMatrix;
+    uniform mat4 u_NormalMatrix;
+    uniform mat4 u_ViewMatrix;
+    uniform mat4 u_ProjMatrix;
+    uniform vec3 u_LightColor;
+    uniform vec3 u_LightDirection;
+    varying vec4 v_Color;
+    uniform bool u_isLighting;
+    varying vec3 v_Normal;
+    varying vec2 v_TexCoords;
+    varying vec3 v_Position;
+    void main() {
+        gl_Position = u_ProjMatrix * u_ViewMatrix * u_ModelMatrix * a_Position;
+        v_Position = vec3(u_ModelMatrix * a_Position);
+        v_Normal = normalize(vec3(u_NormalMatrix * a_Normal));
+        if(u_isLighting) {
+            vec3 normal = normalize((u_NormalMatrix * a_Normal).xyz);
+            float nDotL = max(dot(normal, u_LightDirection), 0.0);
+            vec3 diffuse = u_LightColor * a_Color.rgb * nDotL;
+            v_Color = vec4(diffuse, a_Color.a);
+        } else {
+            v_Color = a_Color;
+        }
+        v_TexCoords = a_TexCoords;
+    }
+`;
 
 // Fragment shader program
-var FSHADER_SOURCE =
-    '#ifdef GL_ES\n' +
-    'precision mediump float;\n' +
-    '#endif\n' +
-    'uniform vec3 u_LightColorB;\n' +     // Light color
-    'uniform vec3 u_LightPosition;\n' +  // Position of the light source
-    'varying vec3 v_Normal;\n' +
-    'varying vec3 v_Position;\n' +
-    'varying vec4 v_Color;\n' +
-    'uniform bool u_isPointLighting;\n' +
-    'void main() {\n' +
-    // CHECK FOR POINT LIGHTING
-    '  if(u_isPointLighting)\n' +
-    '  {\n' +
-    // Normalize the normal because it is interpolated and not 1.0 in length any more
-    '    vec3 normal = normalize(v_Normal);\n' +
-    // Calculate the light direction and make its length 1.
-    '    vec3 lightDirection = normalize(u_LightPosition - v_Position);\n' +
-    // The dot product of the light direction and the orientation of a surface (the normal)
-    '    float nDotL = max(dot(lightDirection, normal), 0.0);\n' +
-    // Calculate the final color from diffuse reflection
-    '    vec3 diffuse = u_LightColorB * v_Color.rgb * nDotL;\n' +
-    '    gl_FragColor = vec4(diffuse + v_Color.rgb, v_Color.a);\n' +
-    '  }' +
-    '  else' +
-    '  {\n' +
-    '    gl_FragColor = v_Color;' +
-    '  }\n' +
-    '}\n';
+var FSHADER_SOURCE = `
+    #ifdef GL_ES
+    precision mediump float;
+    #endif
+    uniform bool u_UseTextures;
+    uniform vec3 u_LightColorB;
+    uniform vec3 u_LightPosition;
+    varying vec3 v_Normal;
+    varying vec3 v_Position;
+    varying vec4 v_Color;
+    uniform bool u_isPointLighting;
+    void main() {
+        if(u_isPointLighting) {
+            vec3 normal = normalize(v_Normal);
+            vec3 lightDirection = normalize(u_LightPosition - v_Position);
+            float nDotL = max(dot(lightDirection, normal), 0.0);
+            vec3 diffuse = u_LightColorB * v_Color.rgb * nDotL;
+            gl_FragColor = vec4(diffuse + v_Color.rgb, v_Color.a);
+        } else {
+            gl_FragColor = v_Color;
+        }
+    }
+`;
 
 var modelMatrix = new Matrix4(); // The model matrix
 var viewMatrix = new Matrix4();  // The view matrix
