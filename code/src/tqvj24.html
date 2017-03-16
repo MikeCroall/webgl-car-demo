@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="utf-8"/>
+    <meta charset="utf-8" />
     <title>tqvj24 - Car Assignment</title>
     <style type="text/css">
-        html, body {
+        html,
+        body {
             margin: 0 auto;
             display: flex;
             justify-content: center;
@@ -12,21 +14,39 @@
         }
 
         body {
-            padding: 10px;
+            padding: 5px;
         }
 
         #divControls {
+            width: 50%;
             margin: 0 auto;
         }
 
-        #divControls h3, ul, p {
-            padding-left: 0;
+        #divControls h3,
+        ul,
+        p {
+            padding: 0;
             list-style-type: none;
             text-align: center;
         }
 
         #divControls p {
             font-style: italic;
+            clear: both;
+        }
+
+        #leftList {
+            float: left;
+            text-align: left;
+        }
+
+        #rightList {
+            float: right;
+            text-align: left;
+        }
+
+        #textureLI {
+            text-decoration: line-through;
         }
 
         .key-command {
@@ -45,52 +65,52 @@
 </head>
 
 <body onload="main()">
-<div>
-    <canvas id="webgl" width="1200" height="800">
+    <div>
+        <canvas id="webgl" width="1200" height="800">
         Please use a browser that supports "canvas"
     </canvas>
-    <div id="divControls">
-        <h3>Controls</h3>
-        <ul>
-            <li>
-                <span class="key-command">Up Arrow</span> - drive forward
-            </li>
-            <li>
-                <span class="key-command">Down Arrow</span> - drive backward
-            </li>
-            <li>
-                <span class="key-command">Left Arrow</span> - turn left
-            </li>
-            <li>
-                <span class="key-command">Right Arrow</span> - turn right
-            </li>
-            <li>
-                <span class="key-command">O</span> - open/close doors - <span class="toggle" id="spnDoors">CLOSED</span>
-            </li>
-            <li>
-                <span class="key-command">K</span> - toggle point light - <span class="toggle on"
-                                                                                id="spnPointLight">ON</span>
-            </li>
-            <li>
-                <span class="key-command">L</span> - toggle directional light - <span class="toggle on"
-                                                                                      id="spnDirectLight">ON</span>
-            </li>
-            <li>
-                <span class="key-command">T</span> - toggle floor texture - <span class="toggle off" id="spnFloorTexture">OFF</span>
-            </li>
-        </ul>
-        <p>
-            Please note: you can hold down a key to continually move/turn, etc. <br>
-            Also, while point and directional lighting can be viewed together, they are clearer one at a time, <br>
-            especially while turning on the spot. No ambient lighting is included.
-        </p>
+        <div id="divControls">
+            <h3>Controls</h3>
+            <ul id="leftList">
+                <li>
+                    <span class="key-command">Up Arrow</span> - drive forward
+                </li>
+                <li>
+                    <span class="key-command">Down Arrow</span> - drive backward
+                </li>
+                <li>
+                    <span class="key-command">Left Arrow</span> - turn left
+                </li>
+                <li>
+                    <span class="key-command">Right Arrow</span> - turn right
+                </li>
+            </ul>
+            <ul id="rightList">
+                <li>
+                    <span class="key-command">O</span> - open/close doors - <span class="toggle" id="spnDoors">CLOSED</span>
+                </li>
+                <li>
+                    <span class="key-command">K</span> - toggle point light - <span class="toggle on" id="spnPointLight">ON</span>
+                </li>
+                <li>
+                    <span class="key-command">L</span> - toggle directional light - <span class="toggle on" id="spnDirectLight">ON</span>
+                </li>
+                <li id="textureLI">
+                    <span class="key-command">T</span> - toggle floor texture - <span class="toggle off" id="spnFloorTexture">OFF</span>
+                </li>
+            </ul>
+            <p>
+                Please note: you can hold down a key to continually move/turn, etc. <br> Also, while point and directional lighting can be viewed together, they are clearer one at a time, <br> especially while turning on the spot. No ambient lighting
+                is included.
+            </p>
+        </div>
     </div>
-</div>
 
-<script src="../lib/webgl-utils.js"></script>
-<script src="../lib/webgl-debug.js"></script>
-<script src="../lib/cuon-utils.js"></script>
-<script src="../lib/cuon-matrix.js"></script>
-<script src="tqvj24.js"></script>
+    <script src="../lib/webgl-utils.js"></script>
+    <script src="../lib/webgl-debug.js"></script>
+    <script src="../lib/cuon-utils.js"></script>
+    <script src="../lib/cuon-matrix.js"></script>
+    <script src="tqvj24.js"></script>
 </body>
+
 </html>

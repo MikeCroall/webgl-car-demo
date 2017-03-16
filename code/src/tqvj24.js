@@ -49,24 +49,31 @@ var FSHADER_SOURCE = `
         vec3 normal = normalize(v_Normal);
         vec3 lightDirection = normalize(u_LightPosition - v_Position);
         float nDotL = max(dot(lightDirection, normal), 0.0);
-        vec3 diffuse = u_LightColorB * v_Color.rgb * nDotL;
+        vec4 TexColor = texture2D(u_Sampler, v_TexCoords);
+        vec3 diffuse;
+
         if (u_UseTextures) {
-            vec4 TexColor = texture2D(u_Sampler, v_TexCoords);
-            diffuse = u_LightColorB * TexColor.rgb * nDotL * 1.2;
-        }
-        if(u_isPointLighting) {
-            gl_FragColor = vec4(diffuse + v_Color.rgb, v_Color.a);
+            if(u_isPointLighting) {
+                diffuse = 2.0 * u_LightColorB * TexColor.rgb * nDotL;
+                gl_FragColor = vec4(diffuse, v_Color.a);
+            } else {
+                gl_FragColor = vec4(TexColor.rgb, TexColor.a);
+            }
         } else {
-            gl_FragColor = v_Color;
+            if(u_isPointLighting) {
+                diffuse = u_LightColorB * v_Color.rgb * nDotL;
+                gl_FragColor = vec4(diffuse + v_Color.rgb, v_Color.a);
+            } else {
+                gl_FragColor = v_Color;
+            }
         }
     }
 `;
-// TODO floor texture only works when point lighting is on
 
 var modelMatrix = new Matrix4(); // The model matrix
-var viewMatrix = new Matrix4();  // The view matrix
-var projMatrix = new Matrix4();  // The projection matrix
-var g_normalMatrix = new Matrix4();  // Coordinate transformation matrix for normals
+var viewMatrix = new Matrix4(); // The view matrix
+var projMatrix = new Matrix4(); // The projection matrix
+var g_normalMatrix = new Matrix4(); // Coordinate transformation matrix for normals
 var u_ViewMatrix;
 var vertices_length = 72; // known for the cube - changes when vertices array actually made if needed
 var g_matrixStack = [];
@@ -74,7 +81,7 @@ var n;
 
 // Constant values
 var WHEEL_ANGLE_STEP = 8.0; // The amount the wheels turn (degrees) per forward/backward step
-var TURNING_ANGLE_STEP = 2.5; // The increments of rotation angle (in degrees) for turning
+var TURNING_ANGLE_STEP = 3.0; // The increments of rotation angle (in degrees) for turning
 var DRIVE_DISPLACEMENT_STEP = 0.25; // The distance moved in a single step forward/backward
 var PLANE_SIDE_LENGTH = 40;
 
@@ -89,6 +96,7 @@ var heldKeys = {};
 var directionalLighting = true;
 var pointLighting = true;
 var floorTexture = false;
+var allowTexture = false;
 var waitingForLightingDraw = false;
 
 // HTML Elements (for controls to show values of toggles)
@@ -96,6 +104,7 @@ var elemDoors;
 var elemPoint;
 var elemDirec;
 var elemTextu;
+var elemTextuLI;
 
 function main() {
     // Retrieve DOM elements
@@ -104,6 +113,7 @@ function main() {
     elemPoint = document.getElementById("spnPointLight");
     elemDirec = document.getElementById("spnDirectLight");
     elemTextu = document.getElementById("spnFloorTexture");
+    elemTextuLI = document.getElementById("textureLI");
 
     // Get the rendering context for WebGL
     var gl = getWebGLContext(canvas);
@@ -160,39 +170,47 @@ function main() {
 
     // Calculate the view matrix and the projection matrix
     viewMatrix.setLookAt(0, 30, 50, xDisplacement, 0, zDisplacement, 0, 1, 0);
-    projMatrix.setPerspective(30, canvas.width / canvas.height, 1, 100);
+    projMatrix.setPerspective(30, canvas.width / canvas.height, 1, 200);
     // Pass the model, view, and projection matrix to the uniform variable respectively
     gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements);
     gl.uniformMatrix4fv(u_ProjMatrix, false, projMatrix.elements);
 
-    var Cubetexture = gl.createTexture();   // Create a texture object
+    var Cubetexture = gl.createTexture(); // Create a texture object
     if (!Cubetexture) {
-      console.log('Failed to create the texture object');
-      return false;
+        console.log('Failed to create the texture object');
+        return false;
     }
 
     // Get the storage location of u_Sampler
     var u_Sampler = gl.getUniformLocation(gl.program, 'u_Sampler');
     if (!u_Sampler) {
-      console.log('Failed to get the storage location of u_Sampler');
-      return false;
+        console.log('Failed to get the storage location of u_Sampler');
+        return false;
     }
 
-    Cubetexture.image = new Image();  // Create the image object
+    Cubetexture.image = new Image(); // Create the image object
     if (!Cubetexture.image) {
-      console.log("Failed to create the image object");
-      return false;
+        console.log("Failed to create the image object");
+        return false;
     }
 
     // Tell the browser to load an image
     // Register the event handler to be called on loading an image
-    Cubetexture.image.onload = function(){
+    Cubetexture.image.onload = function() {
+        allowTexture = true;
+        elemTextuLI.style.textDecoration = "none";
+        console.log("Texture image loaded");
         draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLighting, Cubetexture, u_Sampler, u_UseTextures);
-
-        window.requestAnimationFrame(animateFrame);
     };
+    Cubetexture.image.onerror = function() {
+        allowTexture = false;
+        elemTextuLI.style.textDecoration = "line-through";
+        console.log("Texture image could not be loaded");
+        draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLighting, Cubetexture, u_Sampler, u_UseTextures);
+    };
+    Cubetexture.image.src = '../../floor.jpg';
 
-    document.onkeydown = document.onkeyup = function (e) {
+    document.onkeydown = document.onkeyup = function(e) {
         e = e || event; // IE compatibility
         if (e.keyCode == 75 && e.type == "keydown") {
             pointLighting = !pointLighting;
@@ -205,10 +223,14 @@ function main() {
             elemDirec.className = directionalLighting ? "toggle on" : "toggle";
             elemDirec.innerHTML = directionalLighting ? "ON" : "OFF";
         } else if (e.keyCode == 84 && e.type == "keydown") {
-            floorTexture = !floorTexture;
-            waitingForLightingDraw = true;
-            elemTextu.className = floorTexture ? "toggle on" : "toggle";
-            elemTextu.innerHTML = floorTexture ? "ON" : "OFF";
+            if (allowTexture) {
+                floorTexture = !floorTexture;
+                waitingForLightingDraw = true;
+                elemTextu.className = floorTexture ? "toggle on" : "toggle";
+                elemTextu.innerHTML = floorTexture ? "ON" : "OFF";
+            } else {
+                alert("The texture image wasn't found - try running from a server instead");
+            }
         } else if (e.keyCode == 79) {
             // Door cooldown to avoid flickering doors
             if (door_cooldown < 1 && e.type != "keyup") {
@@ -216,7 +238,7 @@ function main() {
                 doors_open = !doors_open;
                 elemDoors.className = doors_open ? "toggle on" : "toggle";
                 elemDoors.innerHTML = doors_open ? "OPEN" : "CLOSED";
-                draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
+                waitingForLightingDraw = true;
             } else {
                 console.log("Cannot toggle doors so quickly - remaining cooldown: ", door_cooldown)
             }
@@ -225,7 +247,7 @@ function main() {
         }
     };
 
-    n = initVertexBuffers(gl, [0.5, 0.5, 0.5]);
+    n = initVertexBuffers(gl, [0.0, 0.0, 0.0]);
 
     function animateFrame() {
         if (door_cooldown > 0) {
@@ -234,7 +256,7 @@ function main() {
         checkKeys(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLighting, Cubetexture, u_Sampler, u_UseTextures);
         window.requestAnimationFrame(animateFrame);
     }
-    Cubetexture.image.src = '../../floor.jpg';
+    window.requestAnimationFrame(animateFrame);
 }
 
 function turnCar(turnLeft, reversing) {
@@ -267,26 +289,26 @@ function checkKeys(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLig
     var reversing = false;
 
     // Move
-    if (heldKeys[38]) {         // Up arrow - drive forward
+    if (heldKeys[38]) { // Up arrow - drive forward
         recognised = true;
         moveCar(true);
-    } else if (heldKeys[40]) {  //Down arrow - drive backward
+    } else if (heldKeys[40]) { //Down arrow - drive backward
         recognised = true;
         reversing = true;
         moveCar(false);
     }
 
     // Turn
-    if (heldKeys[39]) {         // Right arrow - turn right (y axis rotation)
+    if (heldKeys[39]) { // Right arrow - turn right (y axis rotation)
         recognised = true;
         turnCar(false, reversing);
-    } else if (heldKeys[37]) {  // Left arrow - turn left (y axis negative rotation)
+    } else if (heldKeys[37]) { // Left arrow - turn left (y axis negative rotation)
         recognised = true;
         turnCar(true, reversing);
     }
 
     // Avoid error on O press - actually handled in key event handler due to cooldown to avoid flicker
-    if (heldKeys[79]) {         // O - toggle doors
+    if (heldKeys[79]) { // O - toggle doors
         recognised = true;
     }
 
@@ -345,13 +367,13 @@ function initVertexBuffers(gl, baseColour) {
     //  | |v7---|-|v4
     //  |/      |/
     //  v2------v3
-    var vertices = new Float32Array([   // Coordinates
+    var vertices = new Float32Array([ // Coordinates
         1.0, 1.0, 1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, 1.0, // v0-v1-v2-v3 front
         1.0, 1.0, 1.0, 1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, // v0-v3-v4-v5 right
         1.0, 1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, // v0-v5-v6-v1 up
         -1.0, 1.0, 1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 1.0, // v1-v6-v7-v2 left
         -1.0, -1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0, 1.0, -1.0, -1.0, 1.0, // v7-v4-v3-v2 down
-        1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0  // v4-v7-v6-v5 back
+        1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0 // v4-v7-v6-v5 back
     ]);
     vertices_length = vertices.length;
 
@@ -364,33 +386,33 @@ function initVertexBuffers(gl, baseColour) {
     }
     var colors = new Float32Array(myColours);
 
-    var normals = new Float32Array([    // Normal
-        0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0,  // v0-v1-v2-v3 front
-        1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0,  // v0-v3-v4-v5 right
-        0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0,  // v0-v5-v6-v1 up
-        -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0,  // v1-v6-v7-v2 left
-        0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0,  // v7-v4-v3-v2 down
-        0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0   // v4-v7-v6-v5 back
+    var normals = new Float32Array([ // Normal
+        0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, // v0-v1-v2-v3 front
+        1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, // v0-v3-v4-v5 right
+        0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, // v0-v5-v6-v1 up
+        -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, // v1-v6-v7-v2 left
+        0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, // v7-v4-v3-v2 down
+        0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0 // v4-v7-v6-v5 back
     ]);
 
     // Texture Coordinates
     var texCoords = new Float32Array([
-      1.0, 1.0,    0.0, 1.0,   0.0, 0.0,   1.0, 0.0,  // v0-v1-v2-v3 front
-      0.0, 1.0,    0.0, 0.0,   1.0, 0.0,   1.0, 1.0,  // v0-v3-v4-v5 right
-      1.0, 0.0,    1.0, 1.0,   0.0, 1.0,   0.0, 0.0,  // v0-v5-v6-v1 up
-      1.0, 1.0,    0.0, 1.0,   0.0, 0.0,   1.0, 0.0,  // v1-v6-v7-v2 left
-      0.0, 0.0,    1.0, 0.0,   1.0, 1.0,   0.0, 1.0,  // v7-v4-v3-v2 down
-      0.0, 0.0,    1.0, 0.0,   1.0, 1.0,   0.0, 1.0   // v4-v7-v6-v5 back
+        1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, // v0-v1-v2-v3 front
+        0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, // v0-v3-v4-v5 right
+        1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, // v0-v5-v6-v1 up
+        1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, // v1-v6-v7-v2 left
+        0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, // v7-v4-v3-v2 down
+        0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0 // v4-v7-v6-v5 back
     ]);
 
     // Indices of the vertices
     var indices = new Uint8Array([
-        0, 1, 2, 0, 2, 3,    // front
-        4, 5, 6, 4, 6, 7,    // right
-        8, 9, 10, 8, 10, 11,    // up
-        12, 13, 14, 12, 14, 15,    // left
-        16, 17, 18, 16, 18, 19,    // down
-        20, 21, 22, 20, 22, 23     // back
+        0, 1, 2, 0, 2, 3, // front
+        4, 5, 6, 4, 6, 7, // right
+        8, 9, 10, 8, 10, 11, // up
+        12, 13, 14, 12, 14, 15, // left
+        16, 17, 18, 16, 18, 19, // down
+        20, 21, 22, 20, 22, 23 // back
     ]);
 
     // Write the vertex property to buffers (coordinates, colors and normals)
@@ -627,6 +649,7 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLighting
     for (var wheelNum = 1; wheelNum <= 4; wheelNum++) { // All 4 wheels
         drawWheel(gl, u_ModelMatrix, u_NormalMatrix, wheelNum);
     }
+
     gl.uniform1i(u_UseTextures, floorTexture);
     drawFloor(gl, u_ModelMatrix, u_NormalMatrix);
 }
