@@ -208,7 +208,7 @@ function main() {
         console.log("Texture image could not be loaded");
         draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, u_isPointLighting, Cubetexture, u_Sampler, u_UseTextures);
     };
-    Cubetexture.image.src = '../../floor.jpg';
+    Cubetexture.image.src = 'floor.jpg';
 
     document.onkeydown = document.onkeyup = function(e) {
         e = e || event; // IE compatibility
